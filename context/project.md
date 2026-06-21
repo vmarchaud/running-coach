@@ -1,1 +1,1 @@
-small running coach for my personal use
+custom application to personal coach for running
