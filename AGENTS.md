@@ -87,6 +87,32 @@ The agent will follow the conventions set up in this repo. New projects are scaf
 
 When adding UI components, prefer shadcn/ui first. For lower-level control (custom animations, headless behaviour), use Base UI primitives directly.
 
+## PWA requirements
+
+Every feature must be built as a **Progressive Web App** installable on both iOS and Android.
+
+**Design principles:**
+- **Mobile-first**: design for 375 px wide screens first. Adapt to desktop with responsive breakpoints (`sm:`, `md:`, `lg:`). Never break the mobile layout when adding desktop styles.
+- **Touch-friendly**: tap targets minimum 44×44 px, generous padding, no hover-only interactions.
+- **Safe areas**: respect `env(safe-area-inset-*)` for notched/rounded devices.
+
+**PWA checklist for every feature:**
+- Pages must load and be usable on a slow mobile connection (lean JS bundles, no blocking requests)
+- Images must include `alt` text and use `next/image` for automatic optimisation
+- Interactive states (loading, empty, error) must be handled — no spinners that run forever
+- Forms must work with the virtual keyboard open (avoid fixed-position inputs that get covered)
+
+**Files to keep intact:**
+- `public/manifest.json` — update `name`, `short_name`, `theme_color` as the brand evolves, but never remove required fields
+- `public/sw.js` — only modify if a spec explicitly asks for offline caching
+- `app/sw-register.tsx` — do not remove
+
+**Icons (action required after setup):**
+The app needs icons for the homescreen. Add these files manually:
+- `public/icons/icon-192.png` — 192×192 px
+- `public/icons/icon-512.png` — 512×512 px
+- `public/icons/apple-touch-icon.png` — 180×180 px
+
 ## Claude Code compatibility
 
 This repo includes a `CLAUDE.md` file. When running Claude Code in this repo (via the web, IDE extension, or CLI), that file is automatically loaded as context — it tells Claude about the project structure, conventions, and what it is and isn't allowed to change.
