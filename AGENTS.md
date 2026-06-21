@@ -39,7 +39,6 @@ Create a `.json` file in `specs/pending/`. The filename is arbitrary.
 - Describe the **outcome**, not the implementation
 - Mention exact copy/text where it matters
 - Reference existing patterns ("consistent with the existing card component")
-- If the feature touches a database column, describe the expected shape — schema migrations are out of scope for the agent
 - One spec = one logical change. Atomic specs are easier to deploy and revert
 
 ## Folder structure
@@ -74,4 +73,34 @@ If a run fails:
 
 ## Database
 
-This project has a dedicated PostgreSQL database. The connection string is available to the agent — if a spec needs DB access, reference it in your description and the agent will use it.
+This project uses **Cloudflare D1** (SQLite-compatible). Migrations live in `migrations/` and are applied with `wrangler d1 migrations apply`. If a spec needs a new table or column, describe the expected schema in your spec description — the agent will generate a migration file. Schema changes that affect existing data must be described carefully.
+
+## Tech stack
+
+The agent will follow the conventions set up in this repo. New projects are scaffolded with:
+
+- **Runtime**: Cloudflare Workers (edge, no Node.js APIs)
+- **Framework**: [Next.js on Cloudflare](https://developers.cloudflare.com/pages/framework-guides/nextjs/) via `@opennextjs/cloudflare`
+- **ORM**: [Drizzle ORM](https://orm.drizzle.team/) with the `better-sqlite3` dialect (D1 adapter) — type-safe, zero-dependency, works on the edge
+- **UI components**: [shadcn/ui](https://ui.shadcn.com/) built on top of [Base UI](https://base-ui.com/) — unstyled, accessible primitives styled with Tailwind CSS
+- **Styling**: Tailwind CSS v4
+
+When adding UI components, prefer shadcn/ui first. For lower-level control (custom animations, headless behaviour), use Base UI primitives directly.
+
+## Claude Code compatibility
+
+This repo includes a `CLAUDE.md` file. When running Claude Code in this repo (via the web, IDE extension, or CLI), that file is automatically loaded as context — it tells Claude about the project structure, conventions, and what it is and isn't allowed to change.
+
+Keep `CLAUDE.md` up to date as the project evolves. It is the primary source of truth for any AI assistant working in this repo.
+
+## PRD-first workflow
+
+Before writing any spec, the recommended workflow is to **write a Product Requirements Document (PRD)** with the user. This ensures the agent has enough context to make the right decisions.
+
+A good PRD covers:
+- What problem is being solved and for whom
+- What the feature looks, feels, and behaves like (from a user's perspective — no tech jargon)
+- What success looks like (how would you know it's done?)
+- What is explicitly out of scope
+
+Once the PRD is agreed, break it into atomic specs and drop them into `specs/pending/` in order of dependency.
