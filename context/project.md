@@ -1,1 +1,1 @@
-custom application to personal coach for running
+custom coach for running
