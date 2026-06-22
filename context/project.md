@@ -1,1 +1,1 @@
-personal runner coach app
+personal running coach

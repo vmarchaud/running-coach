@@ -1,5 +1,3 @@
-import type { OpenNextConfig } from "@opennextjs/cloudflare";
-
 export default {
   default: {
     override: {
@@ -11,4 +9,4 @@ export default {
       queue: "dummy",
     },
   },
-} satisfies OpenNextConfig;
+};
