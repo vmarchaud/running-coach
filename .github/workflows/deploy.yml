@@ -21,7 +21,7 @@ jobs:
         run: npx @opennextjs/cloudflare build
 
       - name: Deploy
-        run: npx wrangler pages deploy
+        run: npx wrangler pages deploy .open-next/assets --branch main
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
