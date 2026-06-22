@@ -1,1 +1,1 @@
-running app for my personal use
+personal runner coach app
