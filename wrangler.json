@@ -4,12 +4,16 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
-  "pages_build_output_dir": ".open-next/assets",
+  "main": ".open-next/worker.js",
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "nightly-agents-running-coach",
-      "database_id": "b522f86a-0566-413a-9944-cba84c169866"
+      "database_id": "575c9936-29b8-4603-b103-8d0988a81d28"
     }
   ]
 }
