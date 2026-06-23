@@ -18,10 +18,10 @@ jobs:
         run: npm install
 
       - name: Build
-        run: npx @opennextjs/cloudflare build
+        run: npx opennextjs-cloudflare build
 
       - name: Deploy
-        run: npx wrangler pages deploy .open-next/assets
+        run: npx opennextjs-cloudflare deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOY_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
