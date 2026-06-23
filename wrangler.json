@@ -9,11 +9,14 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  "observability": {
+    "enabled": true
+  },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "nightly-agents-running-coach",
-      "database_id": "69f6fcd2-4b32-4abb-8087-82e0702c2c9c"
+      "database_id": "8b506628-5b9a-4707-83a2-8d40f0380b10"
     }
   ]
 }
