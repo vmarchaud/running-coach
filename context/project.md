@@ -1,1 +1,1 @@
-my custom running app coach
+running coach app
