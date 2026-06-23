@@ -1,1 +1,1 @@
-running coach app
+running coach
