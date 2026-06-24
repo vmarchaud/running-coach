@@ -80,12 +80,12 @@ This project uses **Cloudflare D1** (SQLite-compatible). Migrations live in `mig
 The agent will follow the conventions set up in this repo. New projects are scaffolded with:
 
 - **Runtime**: Cloudflare Workers (edge, no Node.js APIs)
-- **Framework**: [Next.js on Cloudflare](https://developers.cloudflare.com/pages/framework-guides/nextjs/) via `@opennextjs/cloudflare`
-- **ORM**: [Drizzle ORM](https://orm.drizzle.team/) with the `better-sqlite3` dialect (D1 adapter) — type-safe, zero-dependency, works on the edge
-- **UI components**: [shadcn/ui](https://ui.shadcn.com/) built on top of [Base UI](https://base-ui.com/) — unstyled, accessible primitives styled with Tailwind CSS
+- **Backend**: [Hono](https://hono.dev/) — lightweight router for API routes (`/api/*`) running in the Worker
+- **Frontend**: React 19 + [Vite](https://vitejs.dev/) — SPA compiled to static assets, served by the Worker
+- **Database**: Cloudflare D1 (SQLite) accessed via [Drizzle ORM](https://orm.drizzle.team/) — type-safe, zero-dependency, works on the edge
 - **Styling**: Tailwind CSS v4
 
-When adding UI components, prefer shadcn/ui first. For lower-level control (custom animations, headless behaviour), use Base UI primitives directly.
+The backend (Hono worker) and frontend (React SPA) are separate concerns in the same repo. API routes live in `src/worker.ts`; UI components live under `src/`. They communicate over `fetch("/api/...")` calls — never import server code into React components.
 
 ## PWA requirements
 
@@ -98,14 +98,13 @@ Every feature must be built as a **Progressive Web App** installable on both iOS
 
 **PWA checklist for every feature:**
 - Pages must load and be usable on a slow mobile connection (lean JS bundles, no blocking requests)
-- Images must include `alt` text and use `next/image` for automatic optimisation
+- Images must include `alt` text and use appropriate `width`/`height` attributes
 - Interactive states (loading, empty, error) must be handled — no spinners that run forever
 - Forms must work with the virtual keyboard open (avoid fixed-position inputs that get covered)
 
 **Files to keep intact:**
-- `public/manifest.json` — update `name`, `short_name`, `theme_color` as the brand evolves, but never remove required fields
-- `public/sw.js` — only modify if a spec explicitly asks for offline caching
-- `app/sw-register.tsx` — do not remove
+- `vite.config.ts` manifest section — update `name`, `short_name`, `theme_color` as the brand evolves, but never remove required fields
+- The service worker is managed automatically by `vite-plugin-pwa` — do not add a manual `sw.js`
 
 **Icons (action required after setup):**
 The app needs icons for the homescreen. Add these files manually:

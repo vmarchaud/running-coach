@@ -3,24 +3,25 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "dev:worker": "wrangler dev"
   },
   "dependencies": {
-    "next": "15.3.2",
+    "hono": "^4",
     "react": "^19",
     "react-dom": "^19"
   },
   "devDependencies": {
-    "@opennextjs/cloudflare": "^0.6.0",
+    "@vitejs/plugin-react": "^4",
+    "vite-plugin-pwa": "^1",
     "tailwindcss": "^4",
-    "@tailwindcss/postcss": "^4",
+    "@tailwindcss/vite": "^4",
     "typescript": "^5",
-    "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@cloudflare/workers-types": "^4",
     "wrangler": "^4"
   }
 }
