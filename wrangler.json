@@ -1,0 +1,22 @@
+{
+  "name": "running-coach",
+  "compatibility_date": "2026-04-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": ".open-next/worker.js",
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "nightly-agents-running-coach",
+      "database_id": "15d10f9f-4f72-415c-aab9-6a44f32e8886"
+    }
+  ]
+}
