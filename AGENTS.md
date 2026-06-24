@@ -2,6 +2,9 @@
 
 This repo is connected to [nightly-agents](https://github.com/vmarchaud/nightly-agents), an autonomous AI platform that ships features and fixes overnight.
 
+> **CRITICAL — read before doing anything else:**
+> When a user asks you to build, change, or fix something in this repo, your ONLY job is to write a spec JSON file into `specs/pending/` and commit it. You must NEVER directly edit application source code (`src/`, `app/`, `db/`, etc.). All code changes are made exclusively by the nightly-agents platform after reading your spec. If you touch application code yourself, you break the deployment pipeline.
+
 ## How it works
 
 1. You drop a JSON spec file into `specs/pending/`

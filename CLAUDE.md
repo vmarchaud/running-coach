@@ -65,15 +65,24 @@ migrations/         ← Drizzle D1 migration files
 - Access via Drizzle ORM. Schema lives in `db/schema.ts`; migrations in `migrations/`.
 - Never hard-code secrets. Read them from `c.env` (Cloudflare env bindings) in the worker.
 
-## What you may change
+## CRITICAL — how to handle user requests
 
-- Any file under `src/`, `db/`, `migrations/`, `public/` (except `public/icons/` unless the spec asks)
-- `package.json` to add dependencies (run `npm install` after)
-- `vite.config.ts` only if the spec explicitly requires a Vite plugin
+When a user asks you to build or change something in this repo through Claude Code (web, IDE, or CLI), you must **write a spec file** into `specs/pending/` and commit it. Do NOT directly edit application source files.
 
-## What you must NOT change
+The nightly-agents platform reads specs and writes the code. If you bypass this by editing `src/` yourself, the change will not be tracked, may not be deployed correctly, and breaks the intended workflow.
 
-- `wrangler.json` — deployment config
-- `AGENTS.md`, `CLAUDE.md` — agent/AI instructions
-- `context/project.md` — unless the spec explicitly says to update it
-- `specs/` — the agent manages this folder
+**The only correct response to "add X" or "fix Y" is:**
+1. Write `specs/pending/<id>.json` with the spec
+2. Commit and push to `master`
+3. Tell the user the spec was queued
+
+## What you may change directly (without a spec)
+
+- `specs/pending/` — to add new spec files
+- `context/project.md` — to update the project brief if the user asks
+
+## What you must NEVER change directly
+
+- Any source code: `src/`, `app/`, `db/`, `migrations/`, `public/`
+- `package.json`, `vite.config.ts`, `wrangler.json` — config files
+- `AGENTS.md`, `CLAUDE.md` — these instruction files
