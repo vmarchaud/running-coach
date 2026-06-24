@@ -1,0 +1,23 @@
+{
+  "name": "running-coach",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": "src/worker.ts",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "nightly-agents-running-coach",
+      "database_id": "6c0c35d6-902a-405e-a894-841f599f70e5"
+    }
+  ]
+}
