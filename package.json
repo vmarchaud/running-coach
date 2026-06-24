@@ -1,0 +1,27 @@
+{
+  "name": "running-coach",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "dev:worker": "wrangler dev"
+  },
+  "dependencies": {
+    "hono": "^4",
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4",
+    "vite-plugin-pwa": "^1",
+    "tailwindcss": "^4",
+    "@tailwindcss/vite": "^4",
+    "typescript": "^5",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@cloudflare/workers-types": "^4",
+    "wrangler": "^4"
+  }
+}
