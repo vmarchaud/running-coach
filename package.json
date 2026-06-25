@@ -9,19 +9,21 @@
     "dev:worker": "wrangler dev"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.2",
     "hono": "^4",
     "react": "^19",
     "react-dom": "^19"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4",
-    "vite-plugin-pwa": "^1",
-    "tailwindcss": "^4",
+    "@cloudflare/workers-types": "^4",
     "@tailwindcss/vite": "^4",
-    "typescript": "^5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@cloudflare/workers-types": "^4",
+    "@vitejs/plugin-react": "^4",
+    "drizzle-kit": "^0.31.10",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vite-plugin-pwa": "^1",
     "wrangler": "^4"
   }
 }
