@@ -1,47 +1,95 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import { OnboardingFlow } from "./components/onboarding/OnboardingFlow";
+import { Dashboard } from "./components/dashboard/Dashboard";
+import { FullPlan } from "./components/plan/FullPlan";
+import { HistoryList } from "./components/history/HistoryList";
+import { WorkoutDetail } from "./components/workout/WorkoutDetail";
+import { BottomNav, Tab } from "./components/shared/BottomNav";
+import { getMe } from "./api/users";
 
-function getNextRun(): Date {
-  const now = new Date();
-  const next = new Date(now);
-  next.setUTCHours(3, 0, 0, 0);
-  if (now.getUTCHours() >= 3) next.setUTCDate(next.getUTCDate() + 1);
-  return next;
-}
+type View = "onboarding" | "app";
 
-function pad(n: number) {
-  return String(n).padStart(2, "0");
+function getOrCreateUserId(): string {
+  let id = localStorage.getItem("userId");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("userId", id);
+  }
+  return id;
 }
 
 export default function App() {
-  const [timeLeft, setTimeLeft] = useState({ h: "00", m: "00", s: "00" });
+  const [userId] = useState(getOrCreateUserId);
+  const [view, setView] = useState<View | null>(null);
+  const [tab, setTab] = useState<Tab>("dashboard");
+  const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    function tick() {
-      const diff = Math.max(0, getNextRun().getTime() - Date.now());
-      setTimeLeft({
-        h: pad(Math.floor(diff / 3_600_000)),
-        m: pad(Math.floor((diff % 3_600_000) / 60_000)),
-        s: pad(Math.floor((diff % 60_000) / 1_000)),
-      });
-    }
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
+    getMe()
+      .then(() => setView("app"))
+      .catch(() => setView("onboarding"));
   }, []);
 
-  return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-neutral-950 text-white p-6">
-      <p className="text-sm font-medium tracking-widest uppercase text-neutral-400 mb-4">
-        Next update in
-      </p>
-      <div className="flex gap-3 text-5xl sm:text-7xl font-mono font-bold tabular-nums">
-        <span>{timeLeft.h}</span>
-        <span className="text-neutral-600">:</span>
-        <span>{timeLeft.m}</span>
-        <span className="text-neutral-600">:</span>
-        <span>{timeLeft.s}</span>
+  if (view === null) {
+    return (
+      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-neutral-700 border-t-emerald-500 rounded-full animate-spin" />
       </div>
-      <p className="mt-6 text-sm text-neutral-500">Every night at 3:00 AM UTC</p>
-    </main>
+    );
+  }
+
+  if (view === "onboarding") {
+    return (
+      <OnboardingFlow
+        userId={userId}
+        onComplete={() => {
+          setRefreshKey((k) => k + 1);
+          setView("app");
+        }}
+      />
+    );
+  }
+
+  if (selectedWorkoutId) {
+    return (
+      <div className="min-h-screen bg-neutral-950 text-white max-w-lg mx-auto">
+        <WorkoutDetail
+          workoutId={selectedWorkoutId}
+          onBack={() => setSelectedWorkoutId(null)}
+          onLogged={() => {
+            setRefreshKey((k) => k + 1);
+            setSelectedWorkoutId(null);
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-neutral-950 text-white max-w-lg mx-auto flex flex-col">
+      <div className="flex-1 overflow-y-auto pb-20">
+        {tab === "dashboard" && (
+          <Dashboard
+            onWorkoutSelect={setSelectedWorkoutId}
+            refreshKey={refreshKey}
+          />
+        )}
+        {tab === "plan" && (
+          <FullPlan
+            onWorkoutSelect={setSelectedWorkoutId}
+            refreshKey={refreshKey}
+          />
+        )}
+        {tab === "history" && (
+          <HistoryList
+            onWorkoutSelect={setSelectedWorkoutId}
+            refreshKey={refreshKey}
+          />
+        )}
+      </div>
+
+      <BottomNav active={tab} onChange={setTab} />
+    </div>
   );
 }
