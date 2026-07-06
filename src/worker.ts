@@ -4,17 +4,21 @@ import usersRouter from "./routes/users";
 import dashboardRouter from "./routes/dashboard";
 import workoutsRouter from "./routes/workouts";
 import historyRouter from "./routes/history";
+import nolioRouter from "./routes/nolio";
 
-type Bindings = { ASSETS: Fetcher; DB: D1Database };
+type Bindings = { ASSETS: Fetcher; DB: D1Database; NOLIO_CLIENT_SECRET: string; NOLIO_REDIRECT_URI: string };
 type Variables = { userId: string };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 app.use("*", logger());
 
-// Extract userId from header for all /api routes except POST /api/users
+// Extract userId from header for all /api routes except POST /api/users and Nolio callback
 app.use("/api/*", async (c, next) => {
   if (c.req.path === "/api/users" && c.req.method === "POST") {
+    return next();
+  }
+  if (c.req.path === "/api/nolio/callback") {
     return next();
   }
   const userId = c.req.header("X-User-Id");
@@ -28,6 +32,7 @@ app.route("/api/users", usersRouter);
 app.route("/api/dashboard", dashboardRouter);
 app.route("/api/workouts", workoutsRouter);
 app.route("/api/history", historyRouter);
+app.route("/api/nolio", nolioRouter);
 
 app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 

@@ -4,6 +4,7 @@ import { RaceCountdown } from "./RaceCountdown";
 import { WeeklyProgress } from "./WeeklyProgress";
 import { PlanProgress } from "./PlanProgress";
 import { ThisWeekWorkouts } from "./ThisWeekWorkouts";
+import { NolioConnect } from "./NolioConnect";
 import { Spinner } from "../shared/Spinner";
 
 interface Props {
@@ -61,6 +62,10 @@ export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
           currentWeek={data.currentWeek}
           totalWeeks={data.totalWeeks}
         />
+      </div>
+
+      <div className="px-4">
+        <NolioConnect />
       </div>
 
       <div className="px-4">

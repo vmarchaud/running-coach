@@ -32,6 +32,16 @@ export const workouts = sqliteTable("workouts", {
   createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
 });
 
+export const nolioTokens = sqliteTable("nolio_tokens", {
+  userId: text("user_id").primaryKey().references(() => users.id),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token").notNull(),
+  nolioUserId: text("nolio_user_id"),
+  nolioFirstName: text("nolio_first_name"),
+  nolioLastName: text("nolio_last_name"),
+  updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+});
+
 export const workoutLogs = sqliteTable("workout_logs", {
   id: text("id").primaryKey(),
   workoutId: text("workout_id").notNull().references(() => workouts.id),
