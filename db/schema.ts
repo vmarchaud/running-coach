@@ -33,7 +33,7 @@ export const workouts = sqliteTable("workouts", {
 });
 
 export const nolioTokens = sqliteTable("nolio_tokens", {
-  userId: text("user_id").primaryKey().references(() => users.id),
+  userId: text("user_id").primaryKey(),
   accessToken: text("access_token").notNull(),
   refreshToken: text("refresh_token").notNull(),
   nolioUserId: text("nolio_user_id"),

@@ -14,34 +14,30 @@ type Variables = { userId: string };
 
 const router = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
-// GET /api/nolio/connect — redirect user to Nolio OAuth
+export function nolioUserIdFor(nolioId: string | number): string {
+  return `nolio_${nolioId}`;
+}
+
+// GET /api/nolio/connect — full-page redirect to Nolio OAuth. This IS the login entry point.
 router.get("/connect", async (c) => {
-  const userId = c.get("userId");
-  // state = userId so we can associate the callback
-  const state = btoa(userId);
+  const state = crypto.randomUUID();
   const url = buildAuthorizeUrl(c.env.NOLIO_REDIRECT_URI, state);
   return c.redirect(url);
 });
 
-// GET /api/nolio/callback — Nolio redirects here after user authorizes
+// GET /api/nolio/callback — Nolio redirects here after the user authorizes.
+// This is the only sign-in path: the Nolio account IS the app identity.
 router.get("/callback", async (c) => {
   const code = c.req.query("code");
-  const state = c.req.query("state");
   const error = c.req.query("error");
 
-  if (error || !code || !state) {
-    return c.html(`<script>window.opener?.postMessage({type:'nolio_error',error:'${error ?? "missing_params"}'},'*');window.close();</script>`);
-  }
-
-  let userId: string;
-  try {
-    userId = atob(state);
-  } catch {
-    return c.json({ error: "Invalid state" }, 400);
+  if (error || !code) {
+    return c.redirect(`/?nolioError=${encodeURIComponent(error ?? "missing_code")}`);
   }
 
   const tokens = await exchangeCode(code, c.env.NOLIO_REDIRECT_URI, c.env.NOLIO_CLIENT_SECRET);
   const nolioUser = await getNolioUser(tokens.access_token);
+  const userId = nolioUserIdFor(nolioUser.id);
 
   const db = createDb(c.env.DB);
   await db
@@ -66,10 +62,10 @@ router.get("/callback", async (c) => {
       },
     });
 
-  return c.html(`<script>window.opener?.postMessage({type:'nolio_connected'},'*');window.close();</script>`);
+  return c.redirect(`/?nolioUserId=${encodeURIComponent(userId)}`);
 });
 
-// GET /api/nolio/status — returns connection status + Nolio profile
+// GET /api/nolio/status — returns connection status + Nolio profile for the current user.
 router.get("/status", async (c) => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
@@ -82,7 +78,6 @@ router.get("/status", async (c) => {
 
   if (!row) return c.json({ connected: false });
 
-  // Try to fetch fresh Nolio user data, refresh token if needed
   try {
     const nolioUser = await getNolioUser(row.accessToken);
     return c.json({
@@ -118,14 +113,14 @@ router.get("/status", async (c) => {
         },
       });
     } catch {
-      // Refresh token also expired — user must reconnect
+      // Refresh token also expired — user must sign in again
       await db.delete(nolioTokens).where(eq(nolioTokens.userId, userId));
       return c.json({ connected: false, reason: "token_expired" });
     }
   }
 });
 
-// DELETE /api/nolio/disconnect
+// DELETE /api/nolio/disconnect — sign out. Removes the stored Nolio session for this user.
 router.delete("/disconnect", async (c) => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);

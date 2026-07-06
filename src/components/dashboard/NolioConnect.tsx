@@ -1,88 +1,56 @@
 import { useEffect, useState } from "react";
-import { getNolioStatus, openNolioConnect, disconnectNolio, NolioStatus } from "../../api/nolio";
-import { Button } from "../shared/Button";
+import { getNolioStatus, disconnectNolio, redirectToNolioLogin, NolioStatus } from "../../api/nolio";
 
-interface Props {
-  onConnected?: () => void;
-}
-
-export function NolioConnect({ onConnected }: Props) {
+export function NolioConnect() {
   const [status, setStatus] = useState<NolioStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [connecting, setConnecting] = useState(false);
 
-  const load = () => {
-    setLoading(true);
+  useEffect(() => {
     getNolioStatus()
       .then(setStatus)
       .finally(() => setLoading(false));
-  };
+  }, []);
 
-  useEffect(() => { load(); }, []);
-
-  const handleConnect = async () => {
-    setConnecting(true);
-    try {
-      await openNolioConnect(localStorage.getItem("userId") ?? "");
-      await load();
-      onConnected?.();
-    } catch {
-      // ignore — user likely closed the popup
-    } finally {
-      setConnecting(false);
-    }
-  };
-
-  const handleDisconnect = async () => {
+  const handleSignOut = async () => {
     await disconnectNolio();
-    load();
+    localStorage.removeItem("userId");
+    window.location.href = "/";
   };
 
   if (loading) return null;
 
-  if (status?.connected && status.nolioUser) {
+  if (!status?.connected) {
     return (
-      <div className="bg-neutral-900 rounded-2xl p-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">🏅</span>
-          <div>
-            <p className="text-sm font-semibold text-emerald-400">Nolio connected</p>
-            <p className="text-neutral-400 text-xs">
-              {status.nolioUser.firstName} {status.nolioUser.lastName}
-            </p>
-          </div>
-        </div>
+      <div className="bg-neutral-900 border border-yellow-900/50 rounded-2xl p-4">
+        <p className="text-sm font-semibold text-yellow-400">Nolio session expired</p>
+        <p className="text-neutral-500 text-xs mt-1 mb-3">Please sign in again to continue.</p>
         <button
-          onClick={handleDisconnect}
-          className="text-neutral-500 hover:text-red-400 text-xs transition-colors"
+          onClick={redirectToNolioLogin}
+          className="text-emerald-400 text-sm font-medium hover:text-emerald-300"
         >
-          Disconnect
+          Reconnect with Nolio →
         </button>
       </div>
     );
   }
 
   return (
-    <div className="bg-neutral-900 border border-dashed border-neutral-700 rounded-2xl p-4">
-      <div className="flex items-center gap-3 mb-3">
+    <div className="bg-neutral-900 rounded-2xl p-4 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
         <span className="text-2xl">🏅</span>
         <div>
-          <p className="text-sm font-semibold">Connect Nolio</p>
-          <p className="text-neutral-500 text-xs">Sync your training data with Nolio</p>
+          <p className="text-sm font-semibold text-emerald-400">Connected via Nolio</p>
+          <p className="text-neutral-400 text-xs">
+            {status.nolioUser?.firstName} {status.nolioUser?.lastName}
+          </p>
         </div>
       </div>
-      <Button
-        onClick={handleConnect}
-        disabled={connecting}
-        fullWidth
-        size="sm"
-        variant="secondary"
+      <button
+        onClick={handleSignOut}
+        className="text-neutral-500 hover:text-red-400 text-xs transition-colors"
       >
-        {connecting ? "Connecting..." : "Connect with Nolio"}
-      </Button>
-      {status?.reason === "token_expired" && (
-        <p className="text-yellow-500 text-xs mt-2">Session expired — please reconnect.</p>
-      )}
+        Sign out
+      </button>
     </div>
   );
 }
