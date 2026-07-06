@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { LoginScreen } from "./components/auth/LoginScreen";
 import { OnboardingFlow } from "./components/onboarding/OnboardingFlow";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { FullPlan } from "./components/plan/FullPlan";
@@ -7,28 +8,49 @@ import { WorkoutDetail } from "./components/workout/WorkoutDetail";
 import { BottomNav, Tab } from "./components/shared/BottomNav";
 import { getMe } from "./api/users";
 
-type View = "onboarding" | "app";
+type View = "login" | "onboarding" | "app";
 
-function getOrCreateUserId(): string {
-  let id = localStorage.getItem("userId");
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("userId", id);
+function consumeAuthRedirect(): { userId: string | null; error: string | null } {
+  const params = new URLSearchParams(window.location.search);
+  const userId = params.get("nolioUserId");
+  const error = params.get("nolioError");
+
+  if (userId || error) {
+    window.history.replaceState({}, "", window.location.pathname);
   }
-  return id;
+  if (userId) {
+    localStorage.setItem("userId", userId);
+  }
+  return { userId, error };
 }
 
 export default function App() {
-  const [userId] = useState(getOrCreateUserId);
   const [view, setView] = useState<View | null>(null);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("dashboard");
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
+    const { userId: redirectedUserId, error } = consumeAuthRedirect();
+    if (error) setLoginError(error);
+
+    const userId = redirectedUserId ?? localStorage.getItem("userId");
+    if (!userId) {
+      setView("login");
+      return;
+    }
+
     getMe()
       .then(() => setView("app"))
-      .catch(() => setView("onboarding"));
+      .catch((e: any) => {
+        if (e.status === 401) {
+          localStorage.removeItem("userId");
+          setView("login");
+        } else {
+          setView("onboarding");
+        }
+      });
   }, []);
 
   if (view === null) {
@@ -39,10 +61,14 @@ export default function App() {
     );
   }
 
+  if (view === "login") {
+    return <LoginScreen error={loginError} />;
+  }
+
   if (view === "onboarding") {
     return (
       <OnboardingFlow
-        userId={userId}
+        userId={localStorage.getItem("userId") ?? ""}
         onComplete={() => {
           setRefreshKey((k) => k + 1);
           setView("app");

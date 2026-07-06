@@ -1,5 +1,8 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
+import { eq } from "drizzle-orm";
+import { createDb } from "../db";
+import { nolioTokens } from "../db/schema";
 import usersRouter from "./routes/users";
 import dashboardRouter from "./routes/dashboard";
 import workoutsRouter from "./routes/workouts";
@@ -13,16 +16,27 @@ const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 app.use("*", logger());
 
-// Extract userId from header for all /api routes except POST /api/users and Nolio callback
+const PUBLIC_PATHS = new Set(["/api/health", "/api/nolio/connect", "/api/nolio/callback"]);
+
+// Every API route requires a userId backed by a real Nolio session — Nolio is the
+// only sign-in mechanism, so an X-User-Id header alone is not sufficient auth.
 app.use("/api/*", async (c, next) => {
-  if (c.req.path === "/api/users" && c.req.method === "POST") {
+  if (PUBLIC_PATHS.has(c.req.path)) {
     return next();
   }
-  if (c.req.path === "/api/nolio/callback") {
-    return next();
-  }
+
   const userId = c.req.header("X-User-Id");
   if (!userId) return c.json({ error: "Missing X-User-Id header" }, 401);
+
+  const db = createDb(c.env.DB);
+  const session = await db
+    .select({ userId: nolioTokens.userId })
+    .from(nolioTokens)
+    .where(eq(nolioTokens.userId, userId))
+    .get();
+
+  if (!session) return c.json({ error: "Not authenticated with Nolio" }, 401);
+
   c.set("userId", userId);
   return next();
 });

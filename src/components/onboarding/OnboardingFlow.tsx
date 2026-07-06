@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { StepName } from "./StepName";
+import { useEffect, useState } from "react";
 import { StepFitnessLevel } from "./StepFitnessLevel";
 import { StepRaceDate } from "./StepRaceDate";
 import { StepDaysPerWeek } from "./StepDaysPerWeek";
 import { StepTargetTime } from "./StepTargetTime";
 import { StepGenerating } from "./StepGenerating";
 import { createUser } from "../../api/users";
+import { getNolioStatus } from "../../api/nolio";
 
 interface Props {
   userId: string;
@@ -20,11 +20,11 @@ export interface OnboardingState {
   targetTimeMinutes: number | null;
 }
 
-const STEPS = ["name", "fitness", "raceDate", "days", "targetTime", "generating"] as const;
+const STEPS = ["fitness", "raceDate", "days", "targetTime", "generating"] as const;
 type Step = (typeof STEPS)[number];
 
 export function OnboardingFlow({ userId, onComplete }: Props) {
-  const [step, setStep] = useState<Step>("name");
+  const [step, setStep] = useState<Step>("fitness");
   const [data, setData] = useState<OnboardingState>({
     name: "",
     fitnessLevel: "",
@@ -32,6 +32,14 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
     daysPerWeek: 4,
     targetTimeMinutes: null,
   });
+
+  useEffect(() => {
+    getNolioStatus().then((status) => {
+      if (status.connected && status.nolioUser?.firstName) {
+        setData((prev) => ({ ...prev, name: status.nolioUser!.firstName }));
+      }
+    });
+  }, []);
 
   const next = () => {
     const idx = STEPS.indexOf(step);
@@ -46,7 +54,7 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
     setStep("generating");
     await createUser({
       id: userId,
-      name: data.name,
+      name: data.name || "Runner",
       fitnessLevel: data.fitnessLevel,
       daysPerWeek: data.daysPerWeek as any,
       raceDate: data.raceDate,
@@ -69,13 +77,6 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
       )}
 
       <div className="flex-1 flex flex-col px-6 pt-12 pb-8 max-w-lg mx-auto w-full">
-        {step === "name" && (
-          <StepName
-            value={data.name}
-            onChange={(name) => update({ name })}
-            onNext={next}
-          />
-        )}
         {step === "fitness" && (
           <StepFitnessLevel
             value={data.fitnessLevel}
@@ -105,7 +106,7 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
             onNext={submit}
           />
         )}
-        {step === "generating" && <StepGenerating name={data.name} />}
+        {step === "generating" && <StepGenerating name={data.name || "Runner"} />}
       </div>
     </div>
   );
