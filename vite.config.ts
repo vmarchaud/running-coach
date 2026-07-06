@@ -9,6 +9,12 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
+      workbox: {
+        // Never let the SPA navigation fallback intercept API calls (e.g. the
+        // Nolio OAuth redirect) — without this, clicking "Connect with Nolio"
+        // just re-serves the cached app shell instead of hitting the network.
+        navigateFallbackDenylist: [/^\/api\//],
+      },
       manifest: {
         name: "Running Coach",
         short_name: "Running Coach",
