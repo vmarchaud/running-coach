@@ -27,32 +27,52 @@ async function waitForHealth(deadline) {
   return false;
 }
 
+// wrangler dev spawns its own child processes (esbuild, workerd). Running it in a
+// detached process group lets us kill the whole tree instead of leaving orphans
+// that hold stdio open and hang the parent (and CI runners) forever.
+function killProcessGroup(proc) {
+  if (proc.pid == null || proc.exitCode !== null) return;
+  try {
+    process.kill(-proc.pid, "SIGTERM");
+  } catch {
+    // group may already be gone
+  }
+}
+
 async function main() {
   const proc = spawn(
     "npx",
     ["wrangler", "dev", "--local", "--port", String(PORT), "--show-interactive-dev-session=false"],
-    { stdio: ["ignore", "pipe", "pipe"] }
+    { stdio: ["ignore", "pipe", "pipe"], detached: true }
   );
 
   let stderr = "";
   proc.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
 
-  const cleanup = () => {
-    proc.kill("SIGTERM");
-  };
-
+  let exitCode = 0;
   try {
     const ok = await waitForHealth(Date.now() + BOOT_TIMEOUT_MS);
     if (!ok) {
       console.error("Backend did not become healthy in time.");
       if (stderr) console.error(stderr);
-      process.exitCode = 1;
-      return;
+      exitCode = 1;
+    } else {
+      console.log("✓ Backend started and /api/health responded { ok: true }");
     }
-    console.log("✓ Backend started and /api/health responded { ok: true }");
   } finally {
-    cleanup();
+    killProcessGroup(proc);
+    // Give the group a moment to exit gracefully, then force it.
+    await sleep(1000);
+    if (proc.exitCode === null) {
+      try {
+        process.kill(-proc.pid, "SIGKILL");
+      } catch {
+        // already gone
+      }
+    }
   }
+
+  process.exit(exitCode);
 }
 
 main();
