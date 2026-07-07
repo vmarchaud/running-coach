@@ -42,6 +42,16 @@ export const nolioTokens = sqliteTable("nolio_tokens", {
   updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
 });
 
+export const coachMessages = sqliteTable("coach_messages", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  role: text("role").notNull(),
+  // JSON-serialized string | ClaudeContentBlock[], preserving tool_use/tool_result
+  // blocks so the agent keeps full context across turns.
+  content: text("content").notNull(),
+  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+});
+
 export const workoutLogs = sqliteTable("workout_logs", {
   id: text("id").primaryKey(),
   workoutId: text("workout_id").notNull().references(() => workouts.id),
