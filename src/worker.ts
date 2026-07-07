@@ -15,7 +15,7 @@ type Bindings = {
   DB: D1Database;
   NOLIO_CLIENT_SECRET: string;
   NOLIO_REDIRECT_URI: string;
-  CF_AI_GATEWAY_TOKEN: string;
+  AI: Ai;
 };
 type Variables = { userId: string };
 

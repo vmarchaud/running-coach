@@ -167,13 +167,13 @@ export async function runCoachAgent(
   db: Db,
   userId: string,
   nolioClientSecret: string,
-  gatewayToken: string,
+  ai: Ai,
   history: ClaudeMessage[]
 ): Promise<{ reply: string; messages: ClaudeMessage[] }> {
   const messages: ClaudeMessage[] = [...history];
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-    const response = await callClaude(gatewayToken, messages, {
+    const response = await callClaude(ai, messages, {
       system: SYSTEM_PROMPT,
       tools: TOOLS,
     });

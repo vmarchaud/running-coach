@@ -20,5 +20,8 @@
       "database_name": "nightly-agents-running-coach",
       "database_id": "c9ad89b6-572b-43d8-8547-383e69a5f3d8"
     }
-  ]
+  ],
+  "ai": {
+    "binding": "AI"
+  }
 }
