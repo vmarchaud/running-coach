@@ -9,6 +9,7 @@ import {
   getRecords,
   createTraining,
   createPlannedTraining,
+  getKnownSports,
 } from "./nolioApi";
 import { withNolioToken } from "./nolioSession";
 
@@ -86,13 +87,18 @@ const TOOLS: ClaudeTool[] = [
     },
   },
   {
+    name: "list_known_sports",
+    description: "List sport_id values that have actually appeared in this athlete's Nolio history (completed or planned), with their sport name — e.g. Strength Training if they've ever logged one. Nolio has no directory endpoint for sports, so this is discovered from their own data. Call this BEFORE log_completed_training or schedule_planned_training whenever the sport isn't Running/Trail/Cycling, instead of guessing a sport_id.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
     name: "log_completed_training",
-    description: "Manually log a training the athlete completed — any sport, not just running. Most trainings sync in automatically from Coros/Whoop via Nolio and don't need this — only use it for a session that won't sync (e.g. strength work, swimming, a sport without a connected device) or one the athlete explicitly asks you to add. Nolio doesn't publish a full sport_id list; only Running=2, Trail=52, and Cycling=9 are confirmed. For any other sport, ask the athlete to confirm the sport_id (they can find it in the Nolio app) rather than guessing.",
+    description: "Manually log a training the athlete completed — any sport, not just running. Most trainings sync in automatically from Coros/Whoop via Nolio and don't need this — only use it for a session that won't sync (e.g. strength work, swimming, a sport without a connected device) or one the athlete explicitly asks you to add. Only Running=2, Trail=52, and Cycling=9 are confirmed sport_ids off the top of your knowledge — for anything else (like Strength Training), call list_known_sports first; if it's not there either, ask the athlete.",
     input_schema: {
       type: "object",
       properties: {
         name: { type: "string" },
-        sport_id: { type: "integer", description: "2 = Running, 52 = Trail, 9 = Cycling. Ask the athlete for other sports." },
+        sport_id: { type: "integer", description: "2 = Running, 52 = Trail, 9 = Cycling. Call list_known_sports for other sports." },
         date_start: { type: "string", description: "YYYY-MM-DD" },
         duration: { type: "integer", description: "Seconds" },
         distance: { type: "number", description: "Kilometers" },
@@ -106,12 +112,12 @@ const TOOLS: ClaudeTool[] = [
   },
   {
     name: "schedule_planned_training",
-    description: "Schedule a future training on the athlete's Nolio calendar — any sport, not just running (e.g. strength work, cross-training, a rest-day mobility session). Nolio doesn't publish a full sport_id list; only Running=2, Trail=52, and Cycling=9 are confirmed. For any other sport, ask the athlete to confirm the sport_id rather than guessing.",
+    description: "Schedule a future training on the athlete's Nolio calendar — any sport, not just running (e.g. strength work, cross-training, a rest-day mobility session). Only Running=2, Trail=52, and Cycling=9 are confirmed sport_ids off the top of your knowledge — for anything else (like Strength Training), call list_known_sports first; if it's not there either, ask the athlete.",
     input_schema: {
       type: "object",
       properties: {
         name: { type: "string" },
-        sport_id: { type: "integer", description: "2 = Running, 52 = Trail, 9 = Cycling. Ask the athlete for other sports." },
+        sport_id: { type: "integer", description: "2 = Running, 52 = Trail, 9 = Cycling. Call list_known_sports for other sports." },
         date_start: { type: "string", description: "YYYY-MM-DD" },
         duration: { type: "integer", description: "Seconds" },
         distance: { type: "number", description: "Kilometers" },
@@ -145,6 +151,8 @@ async function executeTool(
         return getUserMeta(token, input);
       case "get_records":
         return getRecords(token, input);
+      case "list_known_sports":
+        return getKnownSports(token);
       case "log_completed_training":
         return createTraining(token, input);
       case "schedule_planned_training":

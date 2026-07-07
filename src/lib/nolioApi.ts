@@ -92,3 +92,24 @@ export interface CreatePlannedTrainingInput {
 
 export const createPlannedTraining = (token: string, input: CreatePlannedTrainingInput) =>
   nolioPost(token, "/create/planned/training/", input);
+
+// Nolio has no directory endpoint for sport_id — its own docs say to discover
+// values from existing training/user data instead. This scans the athlete's own
+// history (completed + planned) so we surface real IDs (e.g. Strength Training)
+// instead of guessing.
+export async function getKnownSports(token: string): Promise<{ sportId: number; sport: string }[]> {
+  const threeYearsAgo = new Date();
+  threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
+  const from = threeYearsAgo.toISOString().slice(0, 10);
+
+  const [completed, planned] = await Promise.all([
+    getTrainings(token, { from, limit: 200 }),
+    getPlannedTrainings(token, { from, limit: 200 }),
+  ]);
+
+  const seen = new Map<number, string>();
+  for (const t of [...(completed as any[]), ...(planned as any[])]) {
+    if (t.sport_id != null && !seen.has(t.sport_id)) seen.set(t.sport_id, t.sport);
+  }
+  return Array.from(seen, ([sportId, sport]) => ({ sportId, sport }));
+}

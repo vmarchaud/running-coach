@@ -6,6 +6,7 @@ import {
   getPlannedTrainings,
   createTraining,
   createPlannedTraining,
+  getKnownSports,
 } from "../lib/nolioApi";
 import { withNolioToken } from "../lib/nolioSession";
 import { mapNolioTraining, isFulfilledBy, Session } from "../lib/sessionMapper";
@@ -100,6 +101,13 @@ router.get("/history", async (c) => {
   });
 
   return c.json({ sessions });
+});
+
+// GET /api/sessions/sports — sport_id values seen in the athlete's own Nolio
+// history. Nolio has no directory endpoint for this; it's discovered, not fixed.
+router.get("/sports", async (c) => {
+  const sports = await withToken(c, (token) => getKnownSports(token));
+  return c.json({ sports });
 });
 
 // GET /api/sessions/:id?type=planned|completed
