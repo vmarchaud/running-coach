@@ -1,4 +1,4 @@
-type Tab = "dashboard" | "plan" | "history";
+type Tab = "dashboard" | "plan" | "history" | "coach";
 
 interface BottomNavProps {
   active: Tab;
@@ -10,6 +10,7 @@ export function BottomNav({ active, onChange }: BottomNavProps) {
     { id: "dashboard", label: "This Week", icon: "🏃" },
     { id: "plan", label: "Plan", icon: "📋" },
     { id: "history", label: "History", icon: "📈" },
+    { id: "coach", label: "Coach", icon: "💬" },
   ];
 
   return (
