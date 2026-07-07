@@ -3,6 +3,7 @@
 // integer works as long as it's stable across requests, so we hardcode one here.
 export const NOLIO_PARTNER_ID = 7419283;
 
-export const CF_ACCOUNT_ID = "3c3fe5e5bdd198734e6caf15206507b8";
-export const CF_AI_GATEWAY_NAME = "nightly-agents-gateway";
-export const CLAUDE_MODEL = "claude-sonnet-4-5";
+// Runs on Cloudflare Workers AI (the `AI` binding) instead of Claude via the AI
+// Gateway — Kimi K2.7 supports multi-turn tool calling and is far cheaper per
+// token, with light usage covered by Workers AI's free daily allowance.
+export const COACH_MODEL = "@cf/moonshotai/kimi-k2.7-code";

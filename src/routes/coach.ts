@@ -8,7 +8,7 @@ import type { ClaudeMessage } from "../lib/claude";
 type Bindings = {
   DB: D1Database;
   NOLIO_CLIENT_SECRET: string;
-  CF_AI_GATEWAY_TOKEN: string;
+  AI: Ai;
 };
 type Variables = { userId: string };
 
@@ -69,7 +69,7 @@ router.post("/chat", async (c) => {
       db,
       userId,
       c.env.NOLIO_CLIENT_SECRET,
-      c.env.CF_AI_GATEWAY_TOKEN,
+      c.env.AI,
       withUserMessage
     );
 
