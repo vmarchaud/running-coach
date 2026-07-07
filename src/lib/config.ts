@@ -4,6 +4,11 @@
 export const NOLIO_PARTNER_ID = 7419283;
 
 // Runs on Cloudflare Workers AI (the `AI` binding) instead of Claude via the AI
-// Gateway — Kimi K2.7 supports multi-turn tool calling and is far cheaper per
-// token, with light usage covered by Workers AI's free daily allowance.
-export const COACH_MODEL = "@cf/moonshotai/kimi-k2.7-code";
+// Gateway. Kimi K2.7 (1T params) blew through the 10,000/day free neuron
+// allocation in a single tool-calling conversation — Workers AI's "neuron" cost
+// scales with model size, and our agent loop can make several sequential calls
+// per message. This Gemma model is a mixture-of-experts model (26B total, only ~4B
+// active per token) with the same tool-calling support and response shape as
+// Kimi, at a fraction of the compute cost, so light usage actually fits the
+// free tier.
+export const COACH_MODEL = "@cf/google/gemma-4-26b-a4b-it";
