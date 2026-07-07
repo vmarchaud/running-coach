@@ -73,7 +73,7 @@ export function CoachChat() {
         {visibleMessages.map((m, i) => (
           <div
             key={i}
-            className={`max-w-[85%] rounded-2xl px-4 py-2.5 whitespace-pre-wrap text-sm leading-relaxed ${
+            className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-2.5 whitespace-pre-wrap text-sm leading-relaxed ${
               m.role === "user"
                 ? "self-end bg-emerald-600 text-white"
                 : "self-start bg-neutral-800 text-neutral-100"
