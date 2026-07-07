@@ -4,7 +4,6 @@ import { eq } from "drizzle-orm";
 import { createDb } from "../db";
 import { nolioTokens } from "../db/schema";
 import usersRouter from "./routes/users";
-import dashboardRouter from "./routes/dashboard";
 import sessionsRouter from "./routes/sessions";
 import nolioRouter from "./routes/nolio";
 import coachRouter from "./routes/coach";
@@ -49,7 +48,6 @@ app.use("/api/*", async (c, next) => {
 
 app.get("/api/health", (c) => c.json({ ok: true }));
 app.route("/api/users", usersRouter);
-app.route("/api/dashboard", dashboardRouter);
 app.route("/api/sessions", sessionsRouter);
 app.route("/api/nolio", nolioRouter);
 app.route("/api/coach", coachRouter);

@@ -87,12 +87,12 @@ const TOOLS: ClaudeTool[] = [
   },
   {
     name: "log_completed_training",
-    description: "Manually log a training the athlete completed. Most trainings sync in automatically from Coros/Whoop via Nolio and don't need this — only use it for a session that won't sync (e.g. cross-training, gym work) or one the athlete explicitly asks you to add. Use sport_id 2 for Running unless the athlete specifies another sport.",
+    description: "Manually log a training the athlete completed — any sport, not just running. Most trainings sync in automatically from Coros/Whoop via Nolio and don't need this — only use it for a session that won't sync (e.g. strength work, swimming, a sport without a connected device) or one the athlete explicitly asks you to add. Nolio doesn't publish a full sport_id list; only Running=2, Trail=52, and Cycling=9 are confirmed. For any other sport, ask the athlete to confirm the sport_id (they can find it in the Nolio app) rather than guessing.",
     input_schema: {
       type: "object",
       properties: {
         name: { type: "string" },
-        sport_id: { type: "integer", description: "2 = Running" },
+        sport_id: { type: "integer", description: "2 = Running, 52 = Trail, 9 = Cycling. Ask the athlete for other sports." },
         date_start: { type: "string", description: "YYYY-MM-DD" },
         duration: { type: "integer", description: "Seconds" },
         distance: { type: "number", description: "Kilometers" },
@@ -106,12 +106,12 @@ const TOOLS: ClaudeTool[] = [
   },
   {
     name: "schedule_planned_training",
-    description: "Schedule a future training on the athlete's Nolio calendar. Use sport_id 2 for Running unless specified otherwise.",
+    description: "Schedule a future training on the athlete's Nolio calendar — any sport, not just running (e.g. strength work, cross-training, a rest-day mobility session). Nolio doesn't publish a full sport_id list; only Running=2, Trail=52, and Cycling=9 are confirmed. For any other sport, ask the athlete to confirm the sport_id rather than guessing.",
     input_schema: {
       type: "object",
       properties: {
         name: { type: "string" },
-        sport_id: { type: "integer", description: "2 = Running" },
+        sport_id: { type: "integer", description: "2 = Running, 52 = Trail, 9 = Cycling. Ask the athlete for other sports." },
         date_start: { type: "string", description: "YYYY-MM-DD" },
         duration: { type: "integer", description: "Seconds" },
         distance: { type: "number", description: "Kilometers" },

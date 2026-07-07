@@ -21,10 +21,12 @@ function withToken<T>(c: any, fn: (token: string) => Promise<T>): Promise<T> {
   return withNolioToken(db, c.get("userId"), c.env.NOLIO_CLIENT_SECRET, fn);
 }
 
-// GET /api/sessions/week — this week's planned + completed sessions, merged.
+// GET /api/sessions/week?weekStart=YYYY-MM-DD — planned + completed sessions for
+// the week containing weekStart (any day in that week works; defaults to today).
 router.get("/week", async (c) => {
-  const today = new Date();
-  const monday = weekMondayFromDate(today);
+  const weekStartParam = c.req.query("weekStart");
+  const anchor = weekStartParam ? new Date(weekStartParam + "T00:00:00") : new Date();
+  const monday = weekMondayFromDate(anchor);
   const sunday = addDays(monday, 6);
   const from = isoDate(monday);
   const to = isoDate(sunday);
@@ -48,6 +50,8 @@ router.get("/week", async (c) => {
   const weeklyActualKm = completed.reduce((s, x) => s + (x.distance ?? 0), 0);
 
   return c.json({
+    weekStart: from,
+    weekEnd: to,
     planned,
     completed,
     weeklyTargetKm: Math.round(weeklyTargetKm * 10) / 10,

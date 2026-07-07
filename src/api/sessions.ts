@@ -20,10 +20,17 @@ export interface Session {
   zones?: unknown;
 }
 
-export const getWeekSessions = () =>
-  api.get<{ planned: Session[]; completed: Session[]; weeklyTargetKm: number; weeklyActualKm: number }>(
-    "/api/sessions/week"
-  );
+export interface WeekSessions {
+  weekStart: string;
+  weekEnd: string;
+  planned: Session[];
+  completed: Session[];
+  weeklyTargetKm: number;
+  weeklyActualKm: number;
+}
+
+export const getWeekSessions = (weekStart?: string) =>
+  api.get<WeekSessions>(`/api/sessions/week${weekStart ? `?weekStart=${weekStart}` : ""}`);
 
 export const getPlanSessions = () => api.get<{ byWeek: Record<string, Session[]> }>("/api/sessions/plan");
 
