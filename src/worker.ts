@@ -8,8 +8,15 @@ import dashboardRouter from "./routes/dashboard";
 import workoutsRouter from "./routes/workouts";
 import historyRouter from "./routes/history";
 import nolioRouter from "./routes/nolio";
+import coachRouter from "./routes/coach";
 
-type Bindings = { ASSETS: Fetcher; DB: D1Database; NOLIO_CLIENT_SECRET: string; NOLIO_REDIRECT_URI: string };
+type Bindings = {
+  ASSETS: Fetcher;
+  DB: D1Database;
+  NOLIO_CLIENT_SECRET: string;
+  NOLIO_REDIRECT_URI: string;
+  CF_AI_GATEWAY_TOKEN: string;
+};
 type Variables = { userId: string };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
@@ -47,6 +54,7 @@ app.route("/api/dashboard", dashboardRouter);
 app.route("/api/workouts", workoutsRouter);
 app.route("/api/history", historyRouter);
 app.route("/api/nolio", nolioRouter);
+app.route("/api/coach", coachRouter);
 
 app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 

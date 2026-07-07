@@ -4,6 +4,7 @@ import { OnboardingFlow } from "./components/onboarding/OnboardingFlow";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { FullPlan } from "./components/plan/FullPlan";
 import { HistoryList } from "./components/history/HistoryList";
+import { CoachChat } from "./components/coach/CoachChat";
 import { WorkoutDetail } from "./components/workout/WorkoutDetail";
 import { BottomNav, Tab } from "./components/shared/BottomNav";
 import { getMe } from "./api/users";
@@ -93,8 +94,8 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white max-w-lg mx-auto flex flex-col">
-      <div className="flex-1 overflow-y-auto pb-20">
+    <div className="h-screen bg-neutral-950 text-white max-w-lg mx-auto flex flex-col">
+      <div className={`flex-1 min-h-0 ${tab === "coach" ? "flex flex-col" : "overflow-y-auto pb-20"}`}>
         {tab === "dashboard" && (
           <Dashboard
             onWorkoutSelect={setSelectedWorkoutId}
@@ -113,6 +114,7 @@ export default function App() {
             refreshKey={refreshKey}
           />
         )}
+        {tab === "coach" && <CoachChat />}
       </div>
 
       <BottomNav active={tab} onChange={setTab} />
