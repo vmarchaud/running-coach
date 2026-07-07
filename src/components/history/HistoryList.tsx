@@ -1,28 +1,30 @@
 import { useEffect, useState } from "react";
-import { getHistory, HistoryItem } from "../../api/history";
+import { getHistorySessions, Session } from "../../api/sessions";
 import { WorkoutLogRow } from "./WorkoutLogRow";
 import { Spinner } from "../shared/Spinner";
 import { Button } from "../shared/Button";
 
 interface Props {
-  onWorkoutSelect: (id: string) => void;
+  onWorkoutSelect: (id: number, isCompleted: boolean) => void;
   refreshKey?: number;
 }
 
+const PAGE_SIZE = 20;
+
 export function HistoryList({ onWorkoutSelect, refreshKey }: Props) {
-  const [logs, setLogs] = useState<HistoryItem[]>([]);
-  const [total, setTotal] = useState(0);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
-  const load = (offset = 0, append = false) => {
-    if (offset === 0) setLoading(true);
+  const load = (before?: string, append = false) => {
+    if (!append) setLoading(true);
     else setLoadingMore(true);
 
-    getHistory(20, offset)
-      .then(({ logs: newLogs, total: t }) => {
-        setLogs((prev) => (append ? [...prev, ...newLogs] : newLogs));
-        setTotal(t);
+    getHistorySessions(before, PAGE_SIZE)
+      .then(({ sessions: page }) => {
+        setSessions((prev) => (append ? [...prev, ...page] : page));
+        setHasMore(page.length === PAGE_SIZE);
       })
       .finally(() => {
         setLoading(false);
@@ -40,14 +42,24 @@ export function HistoryList({ onWorkoutSelect, refreshKey }: Props) {
     );
   }
 
+  const loadMore = () => {
+    const oldest = sessions[sessions.length - 1];
+    if (!oldest) return;
+    // Nolio's `to` filter is date-only (no time), so re-using the oldest loaded
+    // date_start would re-fetch it — step back a day to avoid duplicates/loops.
+    const cursor = new Date(oldest.dateStart + "T00:00:00");
+    cursor.setDate(cursor.getDate() - 1);
+    load(cursor.toISOString().slice(0, 10), true);
+  };
+
   return (
     <div className="flex flex-col pb-4">
       <div className="px-4 pt-6 pb-4">
         <h1 className="text-2xl font-bold">History</h1>
-        <p className="text-neutral-400 text-sm mt-0.5">{total} workouts completed</p>
+        <p className="text-neutral-400 text-sm mt-0.5">Completed trainings from Nolio</p>
       </div>
 
-      {logs.length === 0 ? (
+      {sessions.length === 0 ? (
         <div className="text-center py-16 text-neutral-500 px-4">
           <div className="text-4xl mb-3">🏁</div>
           <p>No completed workouts yet.</p>
@@ -55,24 +67,15 @@ export function HistoryList({ onWorkoutSelect, refreshKey }: Props) {
         </div>
       ) : (
         <div className="flex flex-col gap-1 px-4">
-          {logs.map((item) => (
-            <WorkoutLogRow
-              key={item.id}
-              item={item}
-              onSelect={() => item.workout && onWorkoutSelect(item.workout.id)}
-            />
+          {sessions.map((s) => (
+            <WorkoutLogRow key={s.id} session={s} onSelect={() => onWorkoutSelect(s.id, true)} />
           ))}
         </div>
       )}
 
-      {logs.length < total && (
+      {hasMore && sessions.length > 0 && (
         <div className="px-4 mt-4">
-          <Button
-            variant="secondary"
-            fullWidth
-            onClick={() => load(logs.length, true)}
-            disabled={loadingMore}
-          >
+          <Button variant="secondary" fullWidth onClick={loadMore} disabled={loadingMore}>
             {loadingMore ? "Loading..." : "Load more"}
           </Button>
         </div>

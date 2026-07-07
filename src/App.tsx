@@ -29,8 +29,10 @@ export default function App() {
   const [view, setView] = useState<View | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("dashboard");
-  const [selectedWorkoutId, setSelectedWorkoutId] = useState<string | null>(null);
+  const [selectedSession, setSelectedSession] = useState<{ id: number; isCompleted: boolean } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const selectSession = (id: number, isCompleted: boolean) => setSelectedSession({ id, isCompleted });
 
   useEffect(() => {
     const { userId: redirectedUserId, error } = consumeAuthRedirect();
@@ -78,15 +80,16 @@ export default function App() {
     );
   }
 
-  if (selectedWorkoutId) {
+  if (selectedSession) {
     return (
       <div className="min-h-screen bg-neutral-950 text-white max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto">
         <WorkoutDetail
-          workoutId={selectedWorkoutId}
-          onBack={() => setSelectedWorkoutId(null)}
+          sessionId={selectedSession.id}
+          isCompleted={selectedSession.isCompleted}
+          onBack={() => setSelectedSession(null)}
           onLogged={() => {
             setRefreshKey((k) => k + 1);
-            setSelectedWorkoutId(null);
+            setSelectedSession(null);
           }}
         />
       </div>
@@ -98,19 +101,19 @@ export default function App() {
       <div className={`flex-1 min-h-0 pb-20 ${tab === "coach" ? "flex flex-col" : "overflow-y-auto"}`}>
         {tab === "dashboard" && (
           <Dashboard
-            onWorkoutSelect={setSelectedWorkoutId}
+            onWorkoutSelect={selectSession}
             refreshKey={refreshKey}
           />
         )}
         {tab === "plan" && (
           <FullPlan
-            onWorkoutSelect={setSelectedWorkoutId}
+            onWorkoutSelect={selectSession}
             refreshKey={refreshKey}
           />
         )}
         {tab === "history" && (
           <HistoryList
-            onWorkoutSelect={setSelectedWorkoutId}
+            onWorkoutSelect={selectSession}
             refreshKey={refreshKey}
           />
         )}

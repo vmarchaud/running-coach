@@ -1,24 +1,23 @@
-import type { Workout } from "../../api/dashboard";
-import { SessionBadge } from "../shared/Badge";
-import { formatPace } from "../../lib/dateUtils";
+import type { Session } from "../../api/sessions";
+import { SportBadge } from "../shared/Badge";
+import { formatDuration } from "../../lib/dateUtils";
 
 interface Props {
-  workout: Workout;
+  session: Session;
   dayLabel?: string;
   onClick: () => void;
 }
 
-export function WorkoutCard({ workout, dayLabel, onClick }: Props) {
-  const done = !!workout.log;
+export function WorkoutCard({ session, dayLabel, onClick }: Props) {
   const today = new Date().toISOString().slice(0, 10);
-  const isToday = workout.scheduledDate === today;
-  const isPast = workout.scheduledDate < today;
+  const isToday = session.dateStart === today;
+  const isPast = session.dateStart < today;
 
   return (
     <button
       onClick={onClick}
       className={`w-full text-left rounded-2xl p-4 border transition-all active:scale-[0.98] ${
-        done
+        session.isCompleted
           ? "bg-emerald-950/30 border-emerald-900/50"
           : isToday
           ? "bg-neutral-800 border-emerald-700/50 ring-1 ring-emerald-700/30"
@@ -32,38 +31,25 @@ export function WorkoutCard({ workout, dayLabel, onClick }: Props) {
               {dayLabel}
             </span>
           )}
-          <span className={`text-lg mt-0.5 ${done ? "opacity-100" : isPast ? "opacity-30" : "opacity-70"}`}>
-            {done ? "✅" : "⭕"}
+          <span className={`text-lg mt-0.5 ${session.isCompleted ? "opacity-100" : isPast ? "opacity-30" : "opacity-70"}`}>
+            {session.isCompleted ? "✅" : "⭕"}
           </span>
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <SessionBadge type={workout.sessionType} />
-            {isToday && !done && (
+            <SportBadge sport={session.sport} />
+            <span className="text-sm text-neutral-300 truncate">{session.name}</span>
+            {isToday && !session.isCompleted && (
               <span className="text-xs text-emerald-400 font-medium">Today</span>
             )}
           </div>
 
           <div className="flex items-center gap-3 mt-1.5 text-sm text-neutral-400">
-            {workout.targetDistanceKm != null && (
-              <span>{workout.targetDistanceKm} km</span>
-            )}
-            {workout.targetPaceMinPerKm != null && (
-              <span>{formatPace(workout.targetPaceMinPerKm)} /km</span>
-            )}
+            {session.distance != null && <span>{session.distance} km</span>}
+            {session.duration != null && <span>{formatDuration(session.duration / 60)}</span>}
+            {session.rpe != null && <span>RPE {session.rpe}/10</span>}
           </div>
-
-          {done && workout.log && (
-            <div className="flex items-center gap-3 mt-1 text-xs text-emerald-400">
-              {workout.log.actualDistanceKm != null && (
-                <span>✓ {workout.log.actualDistanceKm} km</span>
-              )}
-              {workout.log.actualDurationMinutes != null && (
-                <span>{Math.round(workout.log.actualDurationMinutes)}min</span>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </button>

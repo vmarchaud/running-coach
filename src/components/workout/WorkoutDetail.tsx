@@ -1,34 +1,29 @@
 import { useEffect, useState } from "react";
-import { getWorkout } from "../../api/workouts";
-import type { Workout } from "../../api/dashboard";
-import { SessionBadge, EffortBadge } from "../shared/Badge";
+import { getSessionDetail, Session } from "../../api/sessions";
+import { SportBadge, StatusBadge } from "../shared/Badge";
 import { LogForm } from "./LogForm";
 import { WorkoutLogDisplay } from "./WorkoutLogDisplay";
 import { Spinner } from "../shared/Spinner";
 import { Button } from "../shared/Button";
-import { formatPace } from "../../lib/dateUtils";
 
 interface Props {
-  workoutId: string;
+  sessionId: number;
+  isCompleted: boolean;
   onBack: () => void;
   onLogged: () => void;
 }
 
-const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-export function WorkoutDetail({ workoutId, onBack, onLogged }: Props) {
-  const [workout, setWorkout] = useState<Workout | null>(null);
+export function WorkoutDetail({ sessionId, isCompleted, onBack, onLogged }: Props) {
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLogForm, setShowLogForm] = useState(false);
 
-  const load = () => {
+  useEffect(() => {
     setLoading(true);
-    getWorkout(workoutId)
-      .then(setWorkout)
+    getSessionDetail(sessionId, isCompleted)
+      .then(setSession)
       .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { load(); }, [workoutId]);
+  }, [sessionId, isCompleted]);
 
   if (loading) {
     return (
@@ -38,10 +33,12 @@ export function WorkoutDetail({ workoutId, onBack, onLogged }: Props) {
     );
   }
 
-  if (!workout) return null;
+  if (!session) return null;
 
-  const dateLabel = new Date(workout.scheduledDate + "T00:00:00").toLocaleDateString("en-GB", {
-    weekday: "long", day: "numeric", month: "long",
+  const dateLabel = new Date(session.dateStart + "T00:00:00").toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
   });
 
   return (
@@ -55,63 +52,65 @@ export function WorkoutDetail({ workoutId, onBack, onLogged }: Props) {
       <div className="px-4 pt-5 flex flex-col gap-5">
         <div>
           <p className="text-neutral-500 text-sm">{dateLabel}</p>
+          <h1 className="text-xl font-bold mt-1">{session.name}</h1>
           <div className="flex items-center gap-2 mt-2">
-            <SessionBadge type={workout.sessionType} />
-            {workout.log && <EffortBadge effort={workout.log.perceivedEffort ?? "moderate"} />}
+            <SportBadge sport={session.sport} />
+            <StatusBadge isCompleted={session.isCompleted} />
           </div>
         </div>
 
         <div className="bg-neutral-900 rounded-2xl p-4 grid grid-cols-2 gap-4">
           <div>
-            <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">Target distance</p>
-            <p className="text-2xl font-bold">
-              {workout.targetDistanceKm != null ? `${workout.targetDistanceKm} km` : "—"}
-            </p>
+            <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">Distance</p>
+            <p className="text-2xl font-bold">{session.distance != null ? `${session.distance} km` : "—"}</p>
           </div>
           <div>
-            <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">Target pace</p>
+            <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">Duration</p>
             <p className="text-2xl font-bold">
-              {workout.targetPaceMinPerKm != null
-                ? `${formatPace(workout.targetPaceMinPerKm)}`
-                : "—"}
+              {session.duration != null ? `${Math.round(session.duration / 60)} min` : "—"}
             </p>
-            {workout.targetPaceMinPerKm && (
-              <p className="text-neutral-500 text-xs">min/km</p>
-            )}
           </div>
+          {session.elevationGain != null && (
+            <div>
+              <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">Elevation</p>
+              <p className="text-lg font-semibold">{session.elevationGain} m</p>
+            </div>
+          )}
+          {session.rpe != null && (
+            <div>
+              <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">RPE</p>
+              <p className="text-lg font-semibold">{session.rpe}/10</p>
+            </div>
+          )}
         </div>
 
-        {workout.notes && (
+        {session.description && (
           <div className="bg-neutral-900 rounded-2xl p-4">
-            <p className="text-neutral-500 text-xs uppercase tracking-wide mb-2">Coach notes</p>
-            <p className="text-neutral-300 text-sm leading-relaxed">{workout.notes}</p>
+            <p className="text-neutral-500 text-xs uppercase tracking-wide mb-2">Notes</p>
+            <p className="text-neutral-300 text-sm leading-relaxed">{session.description}</p>
           </div>
         )}
 
-        {workout.log ? (
-          <WorkoutLogDisplay
-            log={workout.log}
-            onUnlog={() => {
-              load();
-              onLogged();
-            }}
-            workoutId={workoutId}
-          />
+        {session.isCompleted ? (
+          <WorkoutLogDisplay session={session} />
         ) : showLogForm ? (
           <LogForm
-            workoutId={workoutId}
-            targetDistanceKm={workout.targetDistanceKm}
+            session={session}
             onSuccess={() => {
               setShowLogForm(false);
-              load();
               onLogged();
             }}
             onCancel={() => setShowLogForm(false)}
           />
         ) : (
-          <Button onClick={() => setShowLogForm(true)} fullWidth size="lg">
-            Log this workout
-          </Button>
+          <div className="flex flex-col gap-2">
+            <p className="text-neutral-500 text-xs text-center">
+              Sessions synced from Coros/Whoop mark this done automatically. Log it manually only if it won't sync.
+            </p>
+            <Button onClick={() => setShowLogForm(true)} fullWidth size="lg">
+              Log this workout manually
+            </Button>
+          </div>
         )}
       </div>
     </div>
