@@ -87,7 +87,7 @@ const TOOLS: ClaudeTool[] = [
   },
   {
     name: "log_completed_training",
-    description: "Log a training the athlete just completed. Use sport_id 2 for Running unless the athlete specifies another sport.",
+    description: "Manually log a training the athlete completed. Most trainings sync in automatically from Coros/Whoop via Nolio and don't need this — only use it for a session that won't sync (e.g. cross-training, gym work) or one the athlete explicitly asks you to add. Use sport_id 2 for Running unless the athlete specifies another sport.",
     input_schema: {
       type: "object",
       properties: {

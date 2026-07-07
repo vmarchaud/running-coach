@@ -10,4 +10,4 @@ export interface OnboardingData {
 }
 
 export const createUser = (data: OnboardingData) => api.post("/api/users", data);
-export const getMe = () => api.get<{ user: any; plan: any }>("/api/users/me");
+export const getMe = () => api.get<{ user: any }>("/api/users/me");

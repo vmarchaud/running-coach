@@ -1,21 +1,22 @@
 import { useEffect, useState } from "react";
-import { getFullPlan, FullPlanData } from "../../api/workouts";
+import { getPlanSessions, Session } from "../../api/sessions";
 import { WeekSection } from "./WeekSection";
 import { Spinner } from "../shared/Spinner";
+import { isoDate, weekMondayFromDate } from "../../lib/dateUtils";
 
 interface Props {
-  onWorkoutSelect: (id: string) => void;
+  onWorkoutSelect: (id: number, isCompleted: boolean) => void;
   refreshKey?: number;
 }
 
 export function FullPlan({ onWorkoutSelect, refreshKey }: Props) {
-  const [data, setData] = useState<FullPlanData | null>(null);
+  const [byWeek, setByWeek] = useState<Record<string, Session[]> | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    getFullPlan()
-      .then(setData)
+    getPlanSessions()
+      .then((d) => setByWeek(d.byWeek))
       .finally(() => setLoading(false));
   }, [refreshKey]);
 
@@ -27,36 +28,36 @@ export function FullPlan({ onWorkoutSelect, refreshKey }: Props) {
     );
   }
 
-  if (!data) return null;
+  if (!byWeek) return null;
 
-  const today = new Date().toISOString().slice(0, 10);
-
-  const currentWeekNum = (() => {
-    for (let w = 1; w <= data.totalWeeks; w++) {
-      const workouts = data.byWeek[w] ?? [];
-      const dates = workouts.map((x) => x.scheduledDate);
-      if (dates.some((d) => d >= today) || w === data.totalWeeks) return w;
-    }
-    return 1;
-  })();
+  const currentWeekStart = isoDate(weekMondayFromDate(new Date()));
+  const weekStarts = Object.keys(byWeek).sort();
 
   return (
     <div className="flex flex-col pb-4">
       <div className="px-4 pt-6 pb-4">
         <h1 className="text-2xl font-bold">Training Plan</h1>
-        <p className="text-neutral-400 text-sm mt-0.5">{data.totalWeeks} weeks total</p>
+        <p className="text-neutral-400 text-sm mt-0.5">Synced live from your Nolio calendar</p>
       </div>
 
-      {Array.from({ length: data.totalWeeks }, (_, i) => i + 1).map((weekNum) => (
-        <WeekSection
-          key={weekNum}
-          weekNum={weekNum}
-          workouts={data.byWeek[weekNum] ?? []}
-          isCurrentWeek={weekNum === currentWeekNum}
-          defaultOpen={weekNum === currentWeekNum}
-          onWorkoutSelect={onWorkoutSelect}
-        />
-      ))}
+      {weekStarts.length === 0 ? (
+        <div className="text-center py-16 text-neutral-500 px-4">
+          <div className="text-4xl mb-3">📋</div>
+          <p>No upcoming sessions planned in Nolio.</p>
+          <p className="text-sm mt-1">Ask your coach to schedule one, or add it in Nolio.</p>
+        </div>
+      ) : (
+        weekStarts.map((weekStart) => (
+          <WeekSection
+            key={weekStart}
+            weekStart={weekStart}
+            sessions={byWeek[weekStart]}
+            isCurrentWeek={weekStart === currentWeekStart}
+            defaultOpen={weekStart === currentWeekStart}
+            onWorkoutSelect={onWorkoutSelect}
+          />
+        ))
+      )}
     </div>
   );
 }

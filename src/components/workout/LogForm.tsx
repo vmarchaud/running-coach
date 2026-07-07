@@ -1,33 +1,34 @@
 import { useState } from "react";
-import { logWorkout } from "../../api/workouts";
+import { logSession } from "../../api/sessions";
+import type { Session } from "../../api/sessions";
 import { Button } from "../shared/Button";
 
 interface Props {
-  workoutId: string;
-  targetDistanceKm: number | null;
+  session: Session;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-const EFFORTS = ["easy", "moderate", "hard"] as const;
-
-export function LogForm({ workoutId, targetDistanceKm, onSuccess, onCancel }: Props) {
-  const [distance, setDistance] = useState(targetDistanceKm?.toString() ?? "");
+export function LogForm({ session, onSuccess, onCancel }: Props) {
+  const [distance, setDistance] = useState(session.distance?.toString() ?? "");
   const [durationH, setDurationH] = useState("");
   const [durationM, setDurationM] = useState("");
-  const [effort, setEffort] = useState<string>("moderate");
+  const [rpe, setRpe] = useState(session.rpe?.toString() ?? "");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
     setSaving(true);
-    const totalMins =
-      (parseInt(durationH || "0") * 60) + parseInt(durationM || "0");
-    await logWorkout(workoutId, {
-      actualDistanceKm: distance ? parseFloat(distance) : undefined,
-      actualDurationMinutes: totalMins > 0 ? totalMins : undefined,
-      perceivedEffort: effort,
-      notes: notes || undefined,
+    const totalSeconds = ((parseInt(durationH || "0") * 60) + parseInt(durationM || "0")) * 60;
+
+    await logSession({
+      name: session.name,
+      sportId: session.sportId ?? 2,
+      dateStart: session.dateStart,
+      distance: distance ? parseFloat(distance) : undefined,
+      duration: totalSeconds > 0 ? totalSeconds : undefined,
+      rpe: rpe ? parseInt(rpe) : undefined,
+      description: notes || undefined,
     });
     onSuccess();
   };
@@ -37,24 +38,20 @@ export function LogForm({ workoutId, targetDistanceKm, onSuccess, onCancel }: Pr
       <h3 className="font-semibold text-lg">Log workout</h3>
 
       <div>
-        <label className="text-neutral-500 text-xs uppercase tracking-wide block mb-2">
-          Distance (km)
-        </label>
+        <label className="text-neutral-500 text-xs uppercase tracking-wide block mb-2">Distance (km)</label>
         <input
           type="number"
           step="0.1"
           min="0"
           value={distance}
           onChange={(e) => setDistance(e.target.value)}
-          placeholder={targetDistanceKm?.toString() ?? "0.0"}
+          placeholder={session.distance?.toString() ?? "0.0"}
           className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white w-full focus:outline-none focus:border-emerald-500"
         />
       </div>
 
       <div>
-        <label className="text-neutral-500 text-xs uppercase tracking-wide block mb-2">
-          Duration
-        </label>
+        <label className="text-neutral-500 text-xs uppercase tracking-wide block mb-2">Duration</label>
         <div className="flex gap-3 items-center">
           <input
             type="number"
@@ -80,34 +77,19 @@ export function LogForm({ workoutId, targetDistanceKm, onSuccess, onCancel }: Pr
       </div>
 
       <div>
-        <label className="text-neutral-500 text-xs uppercase tracking-wide block mb-2">
-          How did it feel?
-        </label>
-        <div className="flex gap-2">
-          {EFFORTS.map((e) => (
-            <button
-              key={e}
-              onClick={() => setEffort(e)}
-              className={`flex-1 py-2 rounded-xl border text-sm font-medium capitalize transition-all ${
-                effort === e
-                  ? e === "easy"
-                    ? "border-blue-500 bg-blue-950/40 text-blue-300"
-                    : e === "moderate"
-                    ? "border-yellow-500 bg-yellow-950/40 text-yellow-300"
-                    : "border-red-500 bg-red-950/40 text-red-300"
-                  : "border-neutral-700 text-neutral-400 hover:border-neutral-600"
-              }`}
-            >
-              {e}
-            </button>
-          ))}
-        </div>
+        <label className="text-neutral-500 text-xs uppercase tracking-wide block mb-2">RPE (1-10)</label>
+        <input
+          type="number"
+          min="1"
+          max="10"
+          value={rpe}
+          onChange={(e) => setRpe(e.target.value)}
+          className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white w-full focus:outline-none focus:border-emerald-500"
+        />
       </div>
 
       <div>
-        <label className="text-neutral-500 text-xs uppercase tracking-wide block mb-2">
-          Notes (optional)
-        </label>
+        <label className="text-neutral-500 text-xs uppercase tracking-wide block mb-2">Notes (optional)</label>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}

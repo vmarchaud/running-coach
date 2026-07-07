@@ -1,23 +1,25 @@
 import { useState } from "react";
-import type { Workout } from "../../api/dashboard";
+import type { Session } from "../../api/sessions";
 import { WorkoutCard } from "../workout/WorkoutCard";
 
 interface Props {
-  weekNum: number;
-  workouts: Workout[];
+  weekStart: string;
+  sessions: Session[];
   isCurrentWeek: boolean;
   defaultOpen: boolean;
-  onWorkoutSelect: (id: string) => void;
+  onWorkoutSelect: (id: number, isCompleted: boolean) => void;
 }
 
-const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export function WeekSection({ weekNum, workouts, isCurrentWeek, defaultOpen, onWorkoutSelect }: Props) {
+export function WeekSection({ weekStart, sessions, isCurrentWeek, defaultOpen, onWorkoutSelect }: Props) {
   const [open, setOpen] = useState(defaultOpen);
 
-  const completedCount = workouts.filter((w) => !!w.log).length;
-  const totalKm = workouts.reduce((s, w) => s + (w.targetDistanceKm ?? 0), 0);
-  const isTaper = workouts.some((w) => w.notes?.toLowerCase().includes("taper"));
+  const totalKm = sessions.reduce((s, x) => s + (x.distance ?? 0), 0);
+  const label = new Date(weekStart + "T00:00:00").toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+  });
 
   return (
     <div className="border-b border-neutral-800">
@@ -25,52 +27,33 @@ export function WeekSection({ weekNum, workouts, isCurrentWeek, defaultOpen, onW
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-neutral-900/50 transition-colors"
       >
-        <div className="flex items-center gap-3">
-          <div className="text-left">
-            <div className="flex items-center gap-2">
-              <span className={`font-semibold ${isCurrentWeek ? "text-emerald-400" : "text-white"}`}>
-                Week {weekNum}
+        <div className="text-left">
+          <div className="flex items-center gap-2">
+            <span className={`font-semibold ${isCurrentWeek ? "text-emerald-400" : "text-white"}`}>
+              Week of {label}
+            </span>
+            {isCurrentWeek && (
+              <span className="text-xs bg-emerald-900/50 text-emerald-400 px-2 py-0.5 rounded-full">
+                Current
               </span>
-              {isCurrentWeek && (
-                <span className="text-xs bg-emerald-900/50 text-emerald-400 px-2 py-0.5 rounded-full">
-                  Current
-                </span>
-              )}
-              {isTaper && (
-                <span className="text-xs bg-purple-900/50 text-purple-400 px-2 py-0.5 rounded-full">
-                  Taper
-                </span>
-              )}
-            </div>
-            <div className="text-neutral-500 text-xs">
-              {completedCount}/{workouts.length} done · {Math.round(totalKm * 10) / 10} km
-            </div>
+            )}
+          </div>
+          <div className="text-neutral-500 text-xs">
+            {sessions.length} session{sessions.length === 1 ? "" : "s"} · {Math.round(totalKm * 10) / 10} km
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex gap-0.5">
-            {workouts.map((w) => (
-              <div
-                key={w.id}
-                className={`w-2 h-2 rounded-full ${
-                  w.log ? "bg-emerald-500" : "bg-neutral-700"
-                }`}
-              />
-            ))}
-          </div>
-          <span className="text-neutral-500 text-sm">{open ? "▲" : "▼"}</span>
-        </div>
+        <span className="text-neutral-500 text-sm">{open ? "▲" : "▼"}</span>
       </button>
 
       {open && (
         <div className="px-4 pb-4 flex flex-col gap-2">
-          {workouts.map((w) => (
+          {sessions.map((s) => (
             <WorkoutCard
-              key={w.id}
-              workout={w}
-              dayLabel={DAY_NAMES[w.dayOfWeek]}
-              onClick={() => onWorkoutSelect(w.id)}
+              key={s.id}
+              session={s}
+              dayLabel={DAY_NAMES[new Date(s.dateStart + "T00:00:00").getDay()]}
+              onClick={() => onWorkoutSelect(s.id, s.isCompleted)}
             />
           ))}
         </div>

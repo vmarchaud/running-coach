@@ -8,7 +8,7 @@ import { NolioConnect } from "./NolioConnect";
 import { Spinner } from "../shared/Spinner";
 
 interface Props {
-  onWorkoutSelect: (id: string) => void;
+  onWorkoutSelect: (id: number, isCompleted: boolean) => void;
   refreshKey?: number;
 }
 
@@ -45,23 +45,16 @@ export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
     <div className="flex flex-col gap-5 pb-4">
       <div className="px-4 pt-6">
         <h1 className="text-2xl font-bold">Hey, {data.user.name} 👋</h1>
-        <p className="text-neutral-400 text-sm mt-0.5">
-          Week {data.currentWeek} of {data.totalWeeks}
-        </p>
+        <p className="text-neutral-400 text-sm mt-0.5">Synced live from Nolio</p>
       </div>
 
       <div className="px-4">
-        <RaceCountdown days={data.daysUntilRace} raceDate={data.raceDate} />
+        <RaceCountdown days={data.daysUntilRace} raceDate={data.user.raceDate} />
       </div>
 
       <div className="px-4 grid grid-cols-2 gap-3">
         <WeeklyProgress actual={data.weeklyActualKm} target={data.weeklyTargetKm} />
-        <PlanProgress
-          completed={data.completedCount}
-          total={data.totalWorkoutCount}
-          currentWeek={data.currentWeek}
-          totalWeeks={data.totalWeeks}
-        />
+        <PlanProgress completed={data.completedCount} planned={data.plannedCount} />
       </div>
 
       <div className="px-4">
@@ -70,7 +63,7 @@ export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
 
       <div className="px-4">
         <h2 className="text-lg font-semibold mb-3">This week</h2>
-        <ThisWeekWorkouts workouts={data.thisWeekWorkouts} onSelect={onWorkoutSelect} />
+        <ThisWeekWorkouts sessions={data.sessions} onSelect={onWorkoutSelect} />
       </div>
     </div>
   );
