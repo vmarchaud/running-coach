@@ -14,7 +14,7 @@ export function BottomNav({ active, onChange }: BottomNavProps) {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-neutral-900 border-t border-neutral-800 flex safe-bottom">
+    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg md:max-w-2xl lg:max-w-3xl bg-neutral-900 border-t border-neutral-800 flex safe-bottom">
       {tabs.map((tab) => (
         <button
           key={tab.id}

@@ -80,7 +80,7 @@ export default function App() {
 
   if (selectedWorkoutId) {
     return (
-      <div className="min-h-screen bg-neutral-950 text-white max-w-lg mx-auto">
+      <div className="min-h-screen bg-neutral-950 text-white max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto">
         <WorkoutDetail
           workoutId={selectedWorkoutId}
           onBack={() => setSelectedWorkoutId(null)}
@@ -94,8 +94,8 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen bg-neutral-950 text-white max-w-lg mx-auto flex flex-col">
-      <div className={`flex-1 min-h-0 ${tab === "coach" ? "flex flex-col" : "overflow-y-auto pb-20"}`}>
+    <div className="h-screen bg-neutral-950 text-white max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto flex flex-col">
+      <div className={`flex-1 min-h-0 pb-20 ${tab === "coach" ? "flex flex-col" : "overflow-y-auto"}`}>
         {tab === "dashboard" && (
           <Dashboard
             onWorkoutSelect={setSelectedWorkoutId}
