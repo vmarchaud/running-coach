@@ -10,5 +10,7 @@ export interface ChatMessage {
   content: string | ClaudeContentBlock[];
 }
 
-export const sendCoachMessage = (messages: ChatMessage[]) =>
-  api.post<{ reply: string; messages: ChatMessage[] }>("/api/coach/chat", { messages });
+export const getCoachMessages = () => api.get<{ messages: ChatMessage[] }>("/api/coach/messages");
+
+export const sendCoachMessage = (message: string) =>
+  api.post<{ reply: string; messages: ChatMessage[] }>("/api/coach/chat", { message });
