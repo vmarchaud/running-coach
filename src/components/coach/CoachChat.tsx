@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { getCoachMessages, sendCoachMessage, ChatMessage } from "../../api/coach";
+import { getCoachMessages, sendCoachMessage, clearCoachMessages, ChatMessage } from "../../api/coach";
 import { Spinner } from "../shared/Spinner";
 
 function textOf(content: ChatMessage["content"]): string {
@@ -31,6 +31,7 @@ export function CoachChat() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,15 +64,48 @@ export function CoachChat() {
     }
   };
 
+  const clearChat = async () => {
+    await clearCoachMessages();
+    setMessages([]);
+    setConfirmClear(false);
+  };
+
   const visibleMessages = messages.filter((m) => textOf(m.content).trim().length > 0);
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 pt-6 pb-4">
-        <h1 className="text-2xl font-bold">Coach</h1>
-        <p className="text-neutral-400 text-sm mt-0.5">
-          Ask about your training, recovery, or have it schedule your next session.
-        </p>
+      <div className="px-4 pt-6 pb-4 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Coach</h1>
+          <p className="text-neutral-400 text-sm mt-0.5">
+            Ask about your training, recovery, or have it schedule your next session.
+          </p>
+        </div>
+
+        {visibleMessages.length > 0 &&
+          (confirmClear ? (
+            <div className="flex gap-1 flex-shrink-0">
+              <button
+                onClick={clearChat}
+                className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded-lg bg-red-950/40"
+              >
+                Confirm
+              </button>
+              <button
+                onClick={() => setConfirmClear(false)}
+                className="text-xs text-neutral-500 hover:text-neutral-300 px-2 py-1"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmClear(true)}
+              className="text-xs text-neutral-500 hover:text-neutral-300 px-2 py-1 flex-shrink-0"
+            >
+              Clear chat
+            </button>
+          ))}
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 flex flex-col gap-3 pb-4">

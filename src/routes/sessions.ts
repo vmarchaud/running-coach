@@ -7,6 +7,7 @@ import {
   createTraining,
   createPlannedTraining,
   getKnownSports,
+  getUpcomingObjectives,
 } from "../lib/nolioApi";
 import { withNolioToken } from "../lib/nolioSession";
 import { mapNolioTraining, isFulfilledBy, Session } from "../lib/sessionMapper";
@@ -108,6 +109,16 @@ router.get("/history", async (c) => {
 router.get("/sports", async (c) => {
   const sports = await withToken(c, (token) => getKnownSports(token));
   return c.json({ sports });
+});
+
+// GET /api/sessions/objectives — upcoming race goals from Nolio (planned
+// trainings flagged is_competition), main goal first.
+router.get("/objectives", async (c) => {
+  const objectives = await withToken(c, (token) => getUpcomingObjectives(token));
+  return c.json({
+    main: objectives[0] ?? null,
+    secondary: objectives.slice(1),
+  });
 });
 
 // GET /api/sessions/:id?type=planned|completed

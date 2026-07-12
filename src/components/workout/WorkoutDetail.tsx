@@ -3,6 +3,7 @@ import { getSessionDetail, Session } from "../../api/sessions";
 import { SportBadge, StatusBadge } from "../shared/Badge";
 import { LogForm } from "./LogForm";
 import { WorkoutLogDisplay } from "./WorkoutLogDisplay";
+import { RunStreams } from "./RunStreams";
 import { Spinner } from "../shared/Spinner";
 import { Button } from "../shared/Button";
 
@@ -90,6 +91,8 @@ export function WorkoutDetail({ sessionId, isCompleted, onBack, onLogged }: Prop
             <p className="text-neutral-300 text-sm leading-relaxed">{session.description}</p>
           </div>
         )}
+
+        {session.streams && session.streams.length > 1 && <RunStreams streams={session.streams} />}
 
         {session.isCompleted ? (
           <WorkoutLogDisplay session={session} />

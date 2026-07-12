@@ -15,9 +15,19 @@ export interface Session {
   isCompleted: boolean;
   plannedName: string | null;
   plannedSportId: number | null;
-  streams?: unknown;
+  streams?: StreamPoint[];
   laps?: unknown;
   zones?: unknown;
+}
+
+export interface StreamPoint {
+  time: number;
+  distance: number;
+  heartrate?: number;
+  pace?: number;
+  cadence?: number;
+  altitude?: number;
+  watts?: number;
 }
 
 export interface WeekSessions {
@@ -68,3 +78,14 @@ export interface ScheduleSessionInput {
 }
 
 export const scheduleSession = (data: ScheduleSessionInput) => api.post("/api/sessions/schedule", data);
+
+export interface Objective {
+  id: number;
+  name: string;
+  sport: string | null;
+  dateStart: string;
+  description: string | null;
+}
+
+export const getObjectives = () =>
+  api.get<{ main: Objective | null; secondary: Objective[] }>("/api/sessions/objectives");

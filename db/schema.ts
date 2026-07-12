@@ -33,3 +33,14 @@ export const coachMessages = sqliteTable("coach_messages", {
   content: text("content").notNull(),
   createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
 });
+
+// Durable notes the coach saves about the athlete (preferences, injuries,
+// feedback on past sessions, motivational triggers). Deliberately separate from
+// coach_messages — clearing the conversation resets the chat, not what the
+// coach has learned.
+export const coachMemories = sqliteTable("coach_memories", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  content: text("content").notNull(),
+  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+});

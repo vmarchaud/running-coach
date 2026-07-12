@@ -1,4 +1,4 @@
-import { COACH_MODEL } from "./config";
+import { COACH_MODEL, NVIDIA_BASE_URL } from "./config";
 
 export interface ClaudeTool {
   name: string;
@@ -35,9 +35,9 @@ interface OpenAiMessage {
 }
 
 // Our stored message format follows Anthropic's shape (tool_result blocks bundled
-// into a "user" message's content array). Workers AI's chat-completions models
-// expect OpenAI's shape instead — one standalone "tool" message per result — so we
-// translate at the boundary rather than changing what's persisted in D1.
+// into a "user" message's content array). OpenAI-compatible chat-completions APIs
+// expect one standalone "tool" message per result instead — so we translate at
+// the boundary rather than changing what's persisted in D1.
 function toOpenAiMessages(system: string | undefined, messages: ClaudeMessage[]): OpenAiMessage[] {
   const out: OpenAiMessage[] = [];
   if (system) out.push({ role: "system", content: system });
@@ -91,18 +91,32 @@ function toOpenAiTools(tools?: ClaudeTool[]) {
 }
 
 export async function callClaude(
-  ai: Ai,
+  apiKey: string,
   messages: ClaudeMessage[],
   opts: { system?: string; tools?: ClaudeTool[]; maxTokens?: number } = {}
 ): Promise<ClaudeResponse> {
-  const response: any = await ai.run(COACH_MODEL as any, {
-    messages: toOpenAiMessages(opts.system, messages),
-    tools: toOpenAiTools(opts.tools),
-    max_tokens: opts.maxTokens ?? 1024,
+  const res = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: COACH_MODEL,
+      messages: toOpenAiMessages(opts.system, messages),
+      tools: toOpenAiTools(opts.tools),
+      max_tokens: opts.maxTokens ?? 1024,
+      stream: false,
+    }),
   });
 
+  if (!res.ok) {
+    throw new Error(`NVIDIA inference call failed ${res.status}: ${await res.text()}`);
+  }
+
+  const response: any = await res.json();
   const choice = response?.choices?.[0];
-  if (!choice) throw new Error(`Workers AI returned no choices: ${JSON.stringify(response)}`);
+  if (!choice) throw new Error(`NVIDIA API returned no choices: ${JSON.stringify(response)}`);
 
   const msg = choice.message;
   const content: ClaudeContentBlock[] = [];
