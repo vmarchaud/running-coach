@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface Point {
   x: number; // km
@@ -83,7 +84,8 @@ export function StreamChart({ label, unit, color, points, formatValue, invert }:
   const hover = hoverIndex != null ? data[hoverIndex] : null;
 
   return (
-    <div className="bg-neutral-900 rounded-2xl p-4">
+    <Card>
+      <CardContent>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
@@ -136,6 +138,7 @@ export function StreamChart({ label, unit, color, points, formatValue, invert }:
           {hover.x.toFixed(2)} km — <span className="text-white font-medium">{fmt(hover.y)}</span> {unit}
         </p>
       )}
-    </div>
+      </CardContent>
+    </Card>
   );
 }

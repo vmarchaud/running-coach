@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Button } from "../shared/Button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface Props {
   fitnessLevel: string;
@@ -86,29 +88,35 @@ export function StepTargetTime({ fitnessLevel, value, onChange, onNext }: Props)
         <p className="text-neutral-500 text-sm mb-2">Or enter a custom time</p>
         <div className="flex gap-3 items-center">
           <div className="flex-1">
-            <input
+            <Input
+              id="target-hours"
               type="number"
               placeholder="1"
               min="0"
               max="4"
               value={hours}
               onChange={(e) => handleTimeInput(e.target.value, mins)}
-              className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-white w-full text-center text-xl focus:outline-none focus:border-brand-500"
+              className="h-auto bg-neutral-900 border-neutral-700 rounded-xl px-4 py-3 text-white w-full text-center text-xl focus-visible:border-brand-500"
             />
-            <p className="text-neutral-500 text-xs text-center mt-1">hours</p>
+            <Label htmlFor="target-hours" className="text-neutral-500 text-xs text-center mt-1 justify-center">
+              hours
+            </Label>
           </div>
           <span className="text-2xl text-neutral-500 pb-5">:</span>
           <div className="flex-1">
-            <input
+            <Input
+              id="target-mins"
               type="number"
               placeholder="45"
               min="0"
               max="59"
               value={mins}
               onChange={(e) => handleTimeInput(hours, e.target.value)}
-              className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-white w-full text-center text-xl focus:outline-none focus:border-brand-500"
+              className="h-auto bg-neutral-900 border-neutral-700 rounded-xl px-4 py-3 text-white w-full text-center text-xl focus-visible:border-brand-500"
             />
-            <p className="text-neutral-500 text-xs text-center mt-1">minutes</p>
+            <Label htmlFor="target-mins" className="text-neutral-500 text-xs text-center mt-1 justify-center">
+              minutes
+            </Label>
           </div>
         </div>
       </div>

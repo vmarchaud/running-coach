@@ -3,6 +3,15 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getCoachMessages, sendCoachMessageStream, clearCoachMessages, ChatMessage } from "../../api/coach";
 import { Spinner } from "../shared/Spinner";
+import { Button } from "../shared/Button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 function textOf(content: ChatMessage["content"]): string {
   if (typeof content === "string") return content;
@@ -81,31 +90,34 @@ export function CoachChat() {
           </p>
         </div>
 
-        {visibleMessages.length > 0 &&
-          (confirmClear ? (
-            <div className="flex gap-1 flex-shrink-0">
-              <button
-                onClick={clearChat}
-                className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded-lg bg-red-950/40"
-              >
-                Confirm
-              </button>
-              <button
-                onClick={() => setConfirmClear(false)}
-                className="text-xs text-neutral-500 hover:text-neutral-300 px-2 py-1"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setConfirmClear(true)}
-              className="text-xs text-neutral-500 hover:text-neutral-300 px-2 py-1 flex-shrink-0"
-            >
-              Clear chat
-            </button>
-          ))}
+        {visibleMessages.length > 0 && (
+          <button
+            onClick={() => setConfirmClear(true)}
+            className="text-xs text-neutral-500 hover:text-neutral-300 px-2 py-1 flex-shrink-0"
+          >
+            Clear chat
+          </button>
+        )}
       </div>
+
+      <Dialog open={confirmClear} onOpenChange={setConfirmClear}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear conversation?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete your chat history with your coach.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmClear(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={clearChat}>
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 flex flex-col gap-3 pb-4">
         {loadingHistory && (
