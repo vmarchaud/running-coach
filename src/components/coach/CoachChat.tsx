@@ -22,7 +22,7 @@ const markdownComponents = {
   h2: (props: any) => <h2 className="text-base font-bold mt-3 mb-1 first:mt-0" {...props} />,
   h3: (props: any) => <h3 className="text-sm font-bold mt-2 mb-1 first:mt-0" {...props} />,
   code: (props: any) => <code className="bg-black/30 rounded px-1 py-0.5 text-xs" {...props} />,
-  a: (props: any) => <a className="underline text-emerald-400" target="_blank" rel="noreferrer" {...props} />,
+  a: (props: any) => <a className="underline text-brand-400" target="_blank" rel="noreferrer" {...props} />,
 };
 
 export function CoachChat() {
@@ -88,7 +88,7 @@ export function CoachChat() {
     <div className="flex flex-col h-full">
       <div className="px-4 pt-6 pb-4 flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Coach</h1>
+          <h1 className="font-display text-3xl uppercase leading-none">Coach</h1>
           <p className="text-neutral-400 text-sm mt-0.5">
             Ask about your training, recovery, or have it schedule your next session.
           </p>
@@ -139,7 +139,7 @@ export function CoachChat() {
             key={i}
             className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
               m.role === "user"
-                ? "self-end bg-emerald-600 text-white whitespace-pre-wrap"
+                ? "self-end bg-brand-600 text-white whitespace-pre-wrap"
                 : "self-start bg-neutral-800 text-neutral-100"
             }`}
           >
@@ -179,12 +179,12 @@ export function CoachChat() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
           placeholder="Message your coach..."
-          className="flex-1 bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2.5 text-white placeholder-neutral-600 focus:outline-none focus:border-emerald-500"
+          className="flex-1 bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2.5 text-white placeholder-neutral-600 focus:outline-none focus:border-brand-500"
         />
         <button
           onClick={send}
           disabled={sending || !input.trim()}
-          className="bg-emerald-500 text-white rounded-xl px-4 py-2.5 font-semibold disabled:opacity-50 active:scale-95 transition-all"
+          className="bg-brand-500 text-white rounded-xl px-4 py-2.5 font-semibold disabled:opacity-50 active:scale-95 transition-all"
         >
           Send
         </button>

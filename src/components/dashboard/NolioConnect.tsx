@@ -26,7 +26,7 @@ export function NolioConnect() {
         <p className="text-neutral-500 text-xs mt-1 mb-3">Please sign in again to continue.</p>
         <button
           onClick={redirectToNolioLogin}
-          className="text-emerald-400 text-sm font-medium hover:text-emerald-300"
+          className="text-brand-400 text-sm font-medium hover:text-brand-300"
         >
           Reconnect with Nolio →
         </button>
@@ -39,7 +39,7 @@ export function NolioConnect() {
       <div className="flex items-center gap-3">
         <span className="text-2xl">🏅</span>
         <div>
-          <p className="text-sm font-semibold text-emerald-400">Connected via Nolio</p>
+          <p className="text-sm font-semibold text-brand-400">Connected via Nolio</p>
           <p className="text-neutral-400 text-xs">
             {status.nolioUser?.firstName} {status.nolioUser?.lastName}
           </p>

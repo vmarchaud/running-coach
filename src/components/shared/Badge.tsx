@@ -18,7 +18,7 @@ export function StatusBadge({ isCompleted }: { isCompleted: boolean }) {
   return (
     <span
       className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium ${
-        isCompleted ? "bg-emerald-900/60 text-emerald-300" : "bg-neutral-800 text-neutral-400"
+        isCompleted ? "bg-brand-900/60 text-brand-300" : "bg-neutral-800 text-neutral-400"
       }`}
     >
       {isCompleted ? "Done" : "Planned"}
