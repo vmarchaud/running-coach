@@ -18,7 +18,7 @@ export default defineConfig({
       manifest: {
         name: "Running Coach",
         short_name: "Running Coach",
-        description: "Built with nightly-agents",
+        description: "AI running coach synced with Nolio",
         start_url: "/",
         display: "standalone",
         background_color: "#0a0a0a",
