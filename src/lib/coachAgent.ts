@@ -16,6 +16,7 @@ import {
 } from "./nolioApi";
 import { withNolioToken } from "./nolioSession";
 import { diffDays } from "./dateUtils";
+import { saveMemory, loadMemories } from "./memory";
 
 const TOOLS: ClaudeTool[] = [
   {
@@ -132,6 +133,22 @@ const TOOLS: ClaudeTool[] = [
       required: ["name", "sport_id", "date_start"],
     },
   },
+  {
+    name: "save_memory",
+    description: "Save a durable note about the athlete for future conversations — a preference, an injury or recovery detail, feedback on how a session felt, a motivational trigger, anything worth remembering long-term. This persists even if the athlete clears the chat. Use it proactively whenever they share something worth remembering, not just when asked.",
+    input_schema: {
+      type: "object",
+      properties: {
+        content: { type: "string", description: "One clear, self-contained fact or note, e.g. \"Prefers early morning runs\" or \"Recovering from mild IT band pain as of 2026-07-10, avoid downhill running\"." },
+      },
+      required: ["content"],
+    },
+  },
+  {
+    name: "load_memory",
+    description: "Recall everything saved about this athlete from past conversations (preferences, injuries, feedback, etc). A recent subset is already included in your system context — call this if you need the fuller history, e.g. the athlete asks 'what do you remember about me' or references something not in the recent context.",
+    input_schema: { type: "object", properties: {} },
+  },
 ];
 
 async function executeTool(
@@ -141,6 +158,9 @@ async function executeTool(
   userId: string,
   nolioClientSecret: string
 ): Promise<unknown> {
+  if (name === "save_memory") return saveMemory(db, userId, input.content);
+  if (name === "load_memory") return loadMemories(db, userId, 50);
+
   return withNolioToken(db, userId, nolioClientSecret, async (token) => {
     switch (name) {
       case "get_recent_trainings":
@@ -170,6 +190,8 @@ async function executeTool(
 const BASE_SYSTEM_PROMPT = `You are an expert running coach embedded in the athlete's training app. You have direct read/write access to their Nolio account, which aggregates data synced from their Coros watch and Whoop band (trainings, HRV, sleep, resting heart rate, weight, personal records).
 
 Use the tools to ground every answer in real data — pull recent trainings, HRV, and health metrics before giving advice on training load, recovery, or race readiness. When the athlete asks you to log a workout or schedule a future session, use the write tools directly rather than just describing what they should do.
+
+You have a persistent memory (save_memory / load_memory) separate from this chat history. Proactively save anything worth remembering across conversations: stated preferences, injuries or pain they mention, how a session actually felt versus planned, what motivates or discourages them, recurring scheduling constraints. Don't wait to be asked — a throwaway comment like "my knee's been sore" or "I hate early starts" is exactly what belongs in memory. Use what's already saved (shown below) to tailor advice instead of asking the athlete to repeat themselves.
 
 Be concise, direct, and specific with numbers (paces, distances, HR zones) pulled from their actual data. Today's date is ${new Date().toISOString().slice(0, 10)}.`;
 
@@ -227,12 +249,18 @@ async function buildSystemPrompt(db: Db, userId: string, nolioClientSecret: stri
     ? `Fitness level: ${profile.fitnessLevel}.${profile.targetTimeMinutes ? ` Target time: ${profile.targetTimeMinutes} minutes.` : ""}`
     : "";
 
+  const memories = await loadMemories(db, userId, 10);
+  const memoryLines = memories.length > 0 ? memories.map((m) => `- ${m}`).join("\n") : "Nothing saved yet.";
+
   return `${BASE_SYSTEM_PROMPT}
 
 Athlete context (already fetched — don't re-ask for this):
 ${fitnessLine}
 ${objectiveLine}
-Last session: ${lastSessionLine}`;
+Last session: ${lastSessionLine}
+
+What you've learned about this athlete so far (most recent 10 — call load_memory for the full history):
+${memoryLines}`;
 }
 
 const MAX_TOOL_ITERATIONS = 6;
