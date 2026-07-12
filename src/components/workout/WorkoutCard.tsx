@@ -18,16 +18,16 @@ export function WorkoutCard({ session, dayLabel, onClick }: Props) {
       onClick={onClick}
       className={`w-full text-left rounded-2xl p-4 border transition-all active:scale-[0.98] ${
         session.isCompleted
-          ? "bg-emerald-950/30 border-emerald-900/50"
+          ? "bg-brand-950/30 border-brand-900/50"
           : isToday
-          ? "bg-neutral-800 border-emerald-700/50 ring-1 ring-emerald-700/30"
+          ? "bg-neutral-800 border-brand-700/50 ring-1 ring-brand-700/30"
           : "bg-neutral-900 border-neutral-800 hover:border-neutral-700"
       }`}
     >
       <div className="flex items-start gap-3">
         <div className="flex flex-col items-center min-w-[36px]">
           {dayLabel && (
-            <span className={`text-xs font-semibold ${isToday ? "text-emerald-400" : "text-neutral-500"}`}>
+            <span className={`text-xs font-semibold ${isToday ? "text-brand-400" : "text-neutral-500"}`}>
               {dayLabel}
             </span>
           )}
@@ -41,7 +41,7 @@ export function WorkoutCard({ session, dayLabel, onClick }: Props) {
             <SportBadge sport={session.sport} />
             <span className="text-sm text-neutral-300 truncate">{session.name}</span>
             {isToday && !session.isCompleted && (
-              <span className="text-xs text-emerald-400 font-medium">Today</span>
+              <span className="text-xs text-brand-400 font-medium">Today</span>
             )}
           </div>
 

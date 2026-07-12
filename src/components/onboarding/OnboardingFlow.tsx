@@ -70,7 +70,7 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
       {step !== "generating" && (
         <div className="h-1 bg-neutral-800">
           <div
-            className="h-full bg-emerald-500 transition-all duration-500"
+            className="h-full bg-brand-500 transition-all duration-500"
             style={{ width: `${progress}%` }}
           />
         </div>

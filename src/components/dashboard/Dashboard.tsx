@@ -70,8 +70,13 @@ export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <div className="px-4 pt-6">
-        <h1 className="text-2xl font-bold">Hey, {user.name} 👋</h1>
-        <p className="text-neutral-400 text-sm mt-0.5">Synced live from Nolio</p>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="pulse-dot" />
+          <span className="label-eyebrow text-neutral-500">Live from Nolio</span>
+        </div>
+        <h1 className="font-display text-4xl uppercase leading-none">
+          Hey, <span className="text-brand-400">{user.name}</span>
+        </h1>
       </div>
 
       <div className="px-4">
@@ -102,7 +107,7 @@ export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
             >
               ‹
             </button>
-            <h2 className="text-lg font-semibold">{weekLabel(weekOffset)}</h2>
+            <h2 className="font-display text-xl uppercase tracking-wide">{weekLabel(weekOffset)}</h2>
             <button
               onClick={() => setWeekOffset((o) => Math.min(0, o + 1))}
               disabled={weekOffset === 0}

@@ -29,11 +29,11 @@ export function WeekSection({ weekStart, sessions, isCurrentWeek, defaultOpen, o
       >
         <div className="text-left">
           <div className="flex items-center gap-2">
-            <span className={`font-semibold ${isCurrentWeek ? "text-emerald-400" : "text-white"}`}>
+            <span className={`font-semibold ${isCurrentWeek ? "text-brand-400" : "text-white"}`}>
               Week of {label}
             </span>
             {isCurrentWeek && (
-              <span className="text-xs bg-emerald-900/50 text-emerald-400 px-2 py-0.5 rounded-full">
+              <span className="text-xs bg-brand-900/50 text-brand-400 px-2 py-0.5 rounded-full">
                 Current
               </span>
             )}

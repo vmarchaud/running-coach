@@ -87,7 +87,7 @@ export function NotificationOptIn() {
     return (
       <div className="bg-neutral-900 rounded-2xl p-4 flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-emerald-400">🔔 Coach check-ins enabled</p>
+          <p className="text-sm font-semibold text-brand-400">🔔 Coach check-ins enabled</p>
           <p className="text-neutral-500 text-xs mt-0.5">
             You'll get a notification every couple of days with an update and plan.
           </p>

@@ -37,7 +37,7 @@ export function StepFitnessLevel({ value, onChange, onNext }: Props) {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <p className="text-emerald-400 text-sm font-semibold uppercase tracking-widest mb-2">Step 2 of 5</p>
+        <p className="text-brand-400 text-sm font-semibold uppercase tracking-widest mb-2">Step 2 of 5</p>
         <h1 className="text-3xl font-bold">What's your fitness level?</h1>
         <p className="text-neutral-400 mt-2">Be honest — your plan will be built around this.</p>
       </div>
@@ -49,7 +49,7 @@ export function StepFitnessLevel({ value, onChange, onNext }: Props) {
             onClick={() => onChange(level.id)}
             className={`text-left p-4 rounded-xl border-2 transition-all ${
               value === level.id
-                ? "border-emerald-500 bg-emerald-950/40"
+                ? "border-brand-500 bg-brand-950/40"
                 : "border-neutral-800 bg-neutral-900 hover:border-neutral-600"
             }`}
           >
@@ -60,7 +60,7 @@ export function StepFitnessLevel({ value, onChange, onNext }: Props) {
                 <div className="text-neutral-400 text-sm">{level.desc}</div>
               </div>
               {value === level.id && (
-                <span className="ml-auto text-emerald-400">✓</span>
+                <span className="ml-auto text-brand-400">✓</span>
               )}
             </div>
           </button>

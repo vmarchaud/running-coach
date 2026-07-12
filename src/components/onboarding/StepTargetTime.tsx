@@ -58,7 +58,7 @@ export function StepTargetTime({ fitnessLevel, value, onChange, onNext }: Props)
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <p className="text-emerald-400 text-sm font-semibold uppercase tracking-widest mb-2">Step 5 of 5</p>
+        <p className="text-brand-400 text-sm font-semibold uppercase tracking-widest mb-2">Step 5 of 5</p>
         <h1 className="text-3xl font-bold">Do you have a time goal?</h1>
         <p className="text-neutral-400 mt-2">Optional — skip this if you just want to finish.</p>
       </div>
@@ -72,7 +72,7 @@ export function StepTargetTime({ fitnessLevel, value, onChange, onNext }: Props)
               onClick={() => setFromSuggestion(s.minutes)}
               className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
                 (s.minutes === 0 && value === null) || (s.minutes > 0 && value === s.minutes)
-                  ? "border-emerald-500 bg-emerald-950/40 text-emerald-300"
+                  ? "border-brand-500 bg-brand-950/40 text-brand-300"
                   : "border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-neutral-500"
               }`}
             >
@@ -93,7 +93,7 @@ export function StepTargetTime({ fitnessLevel, value, onChange, onNext }: Props)
               max="4"
               value={hours}
               onChange={(e) => handleTimeInput(e.target.value, mins)}
-              className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-white w-full text-center text-xl focus:outline-none focus:border-emerald-500"
+              className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-white w-full text-center text-xl focus:outline-none focus:border-brand-500"
             />
             <p className="text-neutral-500 text-xs text-center mt-1">hours</p>
           </div>
@@ -106,7 +106,7 @@ export function StepTargetTime({ fitnessLevel, value, onChange, onNext }: Props)
               max="59"
               value={mins}
               onChange={(e) => handleTimeInput(hours, e.target.value)}
-              className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-white w-full text-center text-xl focus:outline-none focus:border-emerald-500"
+              className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-white w-full text-center text-xl focus:outline-none focus:border-brand-500"
             />
             <p className="text-neutral-500 text-xs text-center mt-1">minutes</p>
           </div>

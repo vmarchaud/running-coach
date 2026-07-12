@@ -46,7 +46,7 @@ export function LogForm({ session, onSuccess, onCancel }: Props) {
           value={distance}
           onChange={(e) => setDistance(e.target.value)}
           placeholder={session.distance?.toString() ?? "0.0"}
-          className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white w-full focus:outline-none focus:border-emerald-500"
+          className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white w-full focus:outline-none focus:border-brand-500"
         />
       </div>
 
@@ -60,7 +60,7 @@ export function LogForm({ session, onSuccess, onCancel }: Props) {
             value={durationH}
             onChange={(e) => setDurationH(e.target.value)}
             placeholder="0"
-            className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white flex-1 text-center focus:outline-none focus:border-emerald-500"
+            className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white flex-1 text-center focus:outline-none focus:border-brand-500"
           />
           <span className="text-neutral-500">h</span>
           <input
@@ -70,7 +70,7 @@ export function LogForm({ session, onSuccess, onCancel }: Props) {
             value={durationM}
             onChange={(e) => setDurationM(e.target.value)}
             placeholder="00"
-            className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white flex-1 text-center focus:outline-none focus:border-emerald-500"
+            className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white flex-1 text-center focus:outline-none focus:border-brand-500"
           />
           <span className="text-neutral-500">min</span>
         </div>
@@ -84,7 +84,7 @@ export function LogForm({ session, onSuccess, onCancel }: Props) {
           max="10"
           value={rpe}
           onChange={(e) => setRpe(e.target.value)}
-          className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white w-full focus:outline-none focus:border-emerald-500"
+          className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white w-full focus:outline-none focus:border-brand-500"
         />
       </div>
 
@@ -95,7 +95,7 @@ export function LogForm({ session, onSuccess, onCancel }: Props) {
           onChange={(e) => setNotes(e.target.value)}
           placeholder="How did it go?"
           rows={2}
-          className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white w-full resize-none focus:outline-none focus:border-emerald-500"
+          className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white w-full resize-none focus:outline-none focus:border-brand-500"
         />
       </div>
 

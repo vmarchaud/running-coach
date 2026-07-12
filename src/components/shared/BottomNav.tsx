@@ -20,7 +20,7 @@ export function BottomNav({ active, onChange }: BottomNavProps) {
           key={tab.id}
           onClick={() => onChange(tab.id)}
           className={`flex-1 flex flex-col items-center py-3 gap-0.5 transition-colors ${
-            active === tab.id ? "text-emerald-400" : "text-neutral-500 hover:text-neutral-300"
+            active === tab.id ? "text-brand-400" : "text-neutral-500 hover:text-neutral-300"
           }`}
         >
           <span className="text-xl">{tab.icon}</span>

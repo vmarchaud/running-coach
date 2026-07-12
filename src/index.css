@@ -1,5 +1,59 @@
 @import "tailwindcss";
 
+@theme {
+  --font-display: "Bebas Neue", sans-serif;
+  --font-sans: "Barlow", sans-serif;
+
+  --color-brand-50: #e6fff4;
+  --color-brand-100: #b3ffdf;
+  --color-brand-200: #80ffcb;
+  --color-brand-300: #4dffb6;
+  --color-brand-400: #00fe8e;
+  --color-brand-500: #00e880;
+  --color-brand-600: #00c46e;
+  --color-brand-700: #00a05a;
+  --color-brand-800: #007c46;
+  --color-brand-900: #005832;
+  --color-brand-950: #00301b;
+}
+
 * {
   box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.5px;
+}
+
+.label-eyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--color-brand-400);
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(0, 254, 142, 0.5);
+  }
+  50% {
+    opacity: 0.6;
+    box-shadow: 0 0 0 4px rgba(0, 254, 142, 0);
+  }
 }

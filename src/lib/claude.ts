@@ -90,6 +90,27 @@ function toOpenAiTools(tools?: ClaudeTool[]) {
   }));
 }
 
+// Some OpenAI-compatible providers (observed with the NVIDIA-hosted endpoint)
+// occasionally append trailing bytes after the JSON body even with
+// `stream: false`, which makes `res.json()` throw "Unexpected non-whitespace
+// character after JSON". Parse the leading JSON object directly instead of
+// trusting the whole body to be exactly one value.
+function parseChatCompletion(raw: string): any {
+  try {
+    return JSON.parse(raw);
+  } catch (e: any) {
+    const firstLine = raw.split("\n")[0]?.trim();
+    if (firstLine) {
+      try {
+        return JSON.parse(firstLine);
+      } catch {
+        // fall through to the error below
+      }
+    }
+    throw new Error(`NVIDIA response wasn't valid JSON (${e.message}): ${raw.slice(0, 500)}`);
+  }
+}
+
 export async function callClaude(
   apiKey: string,
   messages: ClaudeMessage[],
@@ -114,7 +135,8 @@ export async function callClaude(
     throw new Error(`NVIDIA inference call failed ${res.status}: ${await res.text()}`);
   }
 
-  const response: any = await res.json();
+  const raw = await res.text();
+  const response: any = parseChatCompletion(raw);
   const choice = response?.choices?.[0];
   if (!choice) throw new Error(`NVIDIA API returned no choices: ${JSON.stringify(response)}`);
 
