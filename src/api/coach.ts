@@ -14,3 +14,5 @@ export const getCoachMessages = () => api.get<{ messages: ChatMessage[] }>("/api
 
 export const sendCoachMessage = (message: string) =>
   api.post<{ reply: string; messages: ChatMessage[] }>("/api/coach/chat", { message });
+
+export const clearCoachMessages = () => api.delete<{ ok: boolean }>("/api/coach/messages");

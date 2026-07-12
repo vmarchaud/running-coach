@@ -1,4 +1,6 @@
+import { eq } from "drizzle-orm";
 import type { Db } from "../../db";
+import { users } from "../../db/schema";
 import { callClaude, ClaudeContentBlock, ClaudeMessage, ClaudeTool } from "./claude";
 import {
   getTrainings,
@@ -10,8 +12,10 @@ import {
   createTraining,
   createPlannedTraining,
   getKnownSports,
+  getUpcomingObjectives,
 } from "./nolioApi";
 import { withNolioToken } from "./nolioSession";
+import { diffDays } from "./dateUtils";
 
 const TOOLS: ClaudeTool[] = [
   {
@@ -163,11 +167,73 @@ async function executeTool(
   });
 }
 
-const SYSTEM_PROMPT = `You are an expert running coach embedded in the athlete's training app. You have direct read/write access to their Nolio account, which aggregates data synced from their Coros watch and Whoop band (trainings, HRV, sleep, resting heart rate, weight, personal records).
+const BASE_SYSTEM_PROMPT = `You are an expert running coach embedded in the athlete's training app. You have direct read/write access to their Nolio account, which aggregates data synced from their Coros watch and Whoop band (trainings, HRV, sleep, resting heart rate, weight, personal records).
 
 Use the tools to ground every answer in real data — pull recent trainings, HRV, and health metrics before giving advice on training load, recovery, or race readiness. When the athlete asks you to log a workout or schedule a future session, use the write tools directly rather than just describing what they should do.
 
 Be concise, direct, and specific with numbers (paces, distances, HR zones) pulled from their actual data. Today's date is ${new Date().toISOString().slice(0, 10)}.`;
+
+// Bakes the athlete's goal and last session directly into the system prompt so
+// every reply is grounded from the first message, without spending a tool-call
+// round trip just to find out what's relevant. Nolio's own objectives (a planned
+// training with is_competition: true) take priority over the onboarding race
+// date, since they're the live, user-maintained source; the tools remain
+// available for anything needing more depth.
+async function buildSystemPrompt(db: Db, userId: string, nolioClientSecret: string): Promise<string> {
+  const profile = await db.select().from(users).where(eq(users.id, userId)).get();
+
+  let objectiveLine = "No race goal set yet.";
+  let lastSessionLine = "No completed trainings found yet.";
+
+  try {
+    await withNolioToken(db, userId, nolioClientSecret, async (token) => {
+      const [objectives, recent] = await Promise.all([
+        getUpcomingObjectives(token),
+        getTrainings(token, { limit: 1 }),
+      ]);
+
+      if (objectives.length > 0) {
+        const main = objectives[0];
+        const daysAway = diffDays(new Date(), new Date(main.dateStart + "T00:00:00"));
+        objectiveLine = `Main goal: "${main.name}" (${main.sport ?? "race"}) on ${main.dateStart}, ${daysAway} days away.`;
+        if (objectives.length > 1) {
+          objectiveLine += ` Secondary goals: ${objectives
+            .slice(1)
+            .map((o) => `"${o.name}" on ${o.dateStart}`)
+            .join(", ")}.`;
+        }
+      } else if (profile) {
+        const daysAway = diffDays(new Date(), new Date(profile.raceDate));
+        objectiveLine = `Race goal (from onboarding, no matching Nolio objective found): ${profile.raceDate}, ${daysAway} days away.`;
+      }
+
+      const last = (recent as any[])[0];
+      if (last) {
+        lastSessionLine = `${last.sport ?? "Training"} on ${last.date_start}: ${last.distance ?? "?"} km${
+          last.duration ? `, ${Math.round(last.duration / 60)} min` : ""
+        }${last.rpe ? `, RPE ${last.rpe}/10` : ""}.`;
+      }
+    });
+  } catch {
+    // Not connected to Nolio, or a transient failure — fall back to onboarding
+    // profile only rather than blocking the whole reply on this context.
+    if (profile) {
+      const daysAway = diffDays(new Date(), new Date(profile.raceDate));
+      objectiveLine = `Race goal (from onboarding): ${profile.raceDate}, ${daysAway} days away.`;
+    }
+  }
+
+  const fitnessLine = profile
+    ? `Fitness level: ${profile.fitnessLevel}.${profile.targetTimeMinutes ? ` Target time: ${profile.targetTimeMinutes} minutes.` : ""}`
+    : "";
+
+  return `${BASE_SYSTEM_PROMPT}
+
+Athlete context (already fetched — don't re-ask for this):
+${fitnessLine}
+${objectiveLine}
+Last session: ${lastSessionLine}`;
+}
 
 const MAX_TOOL_ITERATIONS = 6;
 
@@ -175,14 +241,15 @@ export async function runCoachAgent(
   db: Db,
   userId: string,
   nolioClientSecret: string,
-  ai: Ai,
+  nvidiaApiKey: string,
   history: ClaudeMessage[]
 ): Promise<{ reply: string; messages: ClaudeMessage[] }> {
   const messages: ClaudeMessage[] = [...history];
+  const systemPrompt = await buildSystemPrompt(db, userId, nolioClientSecret);
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-    const response = await callClaude(ai, messages, {
-      system: SYSTEM_PROMPT,
+    const response = await callClaude(nvidiaApiKey, messages, {
+      system: systemPrompt,
       tools: TOOLS,
     });
 

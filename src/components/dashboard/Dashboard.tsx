@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { getMe } from "../../api/users";
-import { getWeekSessions, WeekSessions } from "../../api/sessions";
+import { getWeekSessions, getObjectives, WeekSessions, Objective } from "../../api/sessions";
 import { RaceCountdown } from "./RaceCountdown";
 import { WeeklyProgress } from "./WeeklyProgress";
 import { PlanProgress } from "./PlanProgress";
 import { ThisWeekWorkouts } from "./ThisWeekWorkouts";
 import { NolioConnect } from "./NolioConnect";
+import { Objectives } from "./Objectives";
 import { Spinner } from "../shared/Spinner";
 import { addDays, diffDays, isoDate, weekMondayFromDate } from "../../lib/dateUtils";
 
@@ -22,6 +23,7 @@ function weekLabel(offset: number): string {
 
 export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
   const [user, setUser] = useState<{ name: string; raceDate: string } | null>(null);
+  const [objectives, setObjectives] = useState<{ main: Objective | null; secondary: Objective[] } | null>(null);
   const [week, setWeek] = useState<WeekSessions | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -29,6 +31,7 @@ export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
 
   useEffect(() => {
     getMe().then(({ user }) => setUser(user)).catch(() => {});
+    getObjectives().then(setObjectives).catch(() => setObjectives({ main: null, secondary: [] }));
   }, [refreshKey]);
 
   useEffect(() => {
@@ -56,7 +59,11 @@ export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
     );
   }
 
-  const daysUntilRace = Math.max(0, diffDays(new Date(), new Date(user.raceDate)));
+  // Nolio's own objective (a planned training flagged is_competition) is the
+  // live, user-maintained source — prefer it over the onboarding race date,
+  // falling back only if no Nolio objective is set.
+  const raceDate = objectives?.main?.dateStart ?? user.raceDate;
+  const daysUntilRace = Math.max(0, diffDays(new Date(), new Date(raceDate)));
   const sessions = [...week.planned, ...week.completed].sort((a, b) => a.dateStart.localeCompare(b.dateStart));
 
   return (
@@ -67,8 +74,14 @@ export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
       </div>
 
       <div className="px-4">
-        <RaceCountdown days={daysUntilRace} raceDate={user.raceDate} />
+        <RaceCountdown days={daysUntilRace} raceDate={raceDate} />
       </div>
+
+      {objectives && (objectives.main || objectives.secondary.length > 0) && (
+        <div className="px-4">
+          <Objectives main={objectives.main} secondary={objectives.secondary} />
+        </div>
+      )}
 
       <div className="px-4">
         <NolioConnect />

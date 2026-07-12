@@ -13,7 +13,7 @@ type Bindings = {
   DB: D1Database;
   NOLIO_CLIENT_SECRET: string;
   NOLIO_REDIRECT_URI: string;
-  AI: Ai;
+  NVIDIA_API_KEY: string;
 };
 type Variables = { userId: string };
 

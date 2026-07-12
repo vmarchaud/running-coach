@@ -68,3 +68,14 @@ export interface ScheduleSessionInput {
 }
 
 export const scheduleSession = (data: ScheduleSessionInput) => api.post("/api/sessions/schedule", data);
+
+export interface Objective {
+  id: number;
+  name: string;
+  sport: string | null;
+  dateStart: string;
+  description: string | null;
+}
+
+export const getObjectives = () =>
+  api.get<{ main: Objective | null; secondary: Objective[] }>("/api/sessions/objectives");

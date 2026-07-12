@@ -8,7 +8,7 @@ import type { ClaudeMessage } from "../lib/claude";
 type Bindings = {
   DB: D1Database;
   NOLIO_CLIENT_SECRET: string;
-  AI: Ai;
+  NVIDIA_API_KEY: string;
 };
 type Variables = { userId: string };
 
@@ -34,6 +34,14 @@ router.get("/messages", async (c) => {
   }));
 
   return c.json({ messages });
+});
+
+// DELETE /api/coach/messages — clear the conversation and start fresh.
+router.delete("/messages", async (c) => {
+  const userId = c.get("userId");
+  const db = createDb(c.env.DB);
+  await db.delete(coachMessages).where(eq(coachMessages.userId, userId));
+  return c.json({ ok: true });
 });
 
 // POST /api/coach/chat — body: { message: string }. Server loads prior history,
@@ -69,7 +77,7 @@ router.post("/chat", async (c) => {
       db,
       userId,
       c.env.NOLIO_CLIENT_SECRET,
-      c.env.AI,
+      c.env.NVIDIA_API_KEY,
       withUserMessage
     );
 
