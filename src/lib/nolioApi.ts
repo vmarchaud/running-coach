@@ -1,6 +1,13 @@
-import { NOLIO_PARTNER_ID } from "./config";
-
 const BASE = "https://www.nolio.io/api";
+
+// Nolio enforces uniqueness on (id_partner, user) — once a given id_partner has
+// been used to create a training for a user, every future create call with that
+// same id_partner permanently fails with "already exists", regardless of the
+// training's date or content. A shared constant broke after the very first
+// successful create per account; each call needs its own value.
+function generatePartnerId(): number {
+  return Math.floor(Math.random() * 2_147_483_647);
+}
 
 export class NolioApiError extends Error {
   status: number;
@@ -63,7 +70,7 @@ async function nolioPost(accessToken: string, path: string, body: object) {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ id_partner: NOLIO_PARTNER_ID, ...body }),
+    body: JSON.stringify({ id_partner: generatePartnerId(), ...body }),
   });
   if (!res.ok) throw new NolioApiError(res.status, await res.text());
   return res.json();
