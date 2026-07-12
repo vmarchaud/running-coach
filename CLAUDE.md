@@ -33,27 +33,29 @@ src/
   main.tsx          ← React app entry point (frontend)
   App.tsx           ← root React component
   index.css         ← global styles (Tailwind)
-  api/              ← client-side API helper modules (optional)
+  api/              ← client-side API helper modules
   components/       ← React components
+  lib/              ← shared logic: Nolio API client, coach agent, model client, date utils
+  routes/           ← Hono route handlers, mounted in worker.ts
 index.html          ← Vite HTML entry
 vite.config.ts      ← Vite config (React + Tailwind + PWA)
 public/
   icons/            ← PWA icons (192×192, 512×512, apple-touch-icon)
 context/
-  project.md        ← project brief read by the agent before every run
-specs/
-  pending/          ← drop spec JSON files here to queue work
-  deployed/         ← processed specs (do not edit)
+  project.md        ← project brief — read this before making changes
+db/
+  schema.ts         ← Drizzle ORM schema
 migrations/         ← Drizzle D1 migration files
 ```
 
 ## Conventions
 
-### Backend (Hono — `src/worker.ts`)
-- Add routes with `app.get/post/put/delete("/api/...")`.
+### Backend (Hono — `src/worker.ts`, `src/routes/`)
+- Add routes with `app.get/post/put/delete("/api/...")`, or as a sub-router mounted with `app.route(...)`.
 - Access D1 via `c.env.DB` (Drizzle binding). Never access `process.env` — use `c.env.*`.
 - Return JSON with `c.json(...)`. Use `c.json({ error: "..." }, 400)` for errors.
 - HTTP request logging is enabled via `hono/logger` middleware — do not remove it.
+- Nolio is the source of truth for training data (plans, workouts, logs) — don't reintroduce local D1 storage for it. See `context/project.md`.
 
 ### Frontend (React — `src/`)
 - Write plain React components. No server components, no `'use client'` directives.
@@ -64,25 +66,10 @@ migrations/         ← Drizzle D1 migration files
 ### Database
 - Access via Drizzle ORM. Schema lives in `db/schema.ts`; migrations in `migrations/`.
 - Never hard-code secrets. Read them from `c.env` (Cloudflare env bindings) in the worker.
+- Generate a new numbered migration file for schema changes; don't hand-edit an already-applied one.
 
-## CRITICAL — how to handle user requests
+## Making changes
 
-When a user asks you to build or change something in this repo through Claude Code (web, IDE, or CLI), you must **write a spec file** into `specs/pending/` and commit it. Do NOT directly edit application source files.
+Edit application code directly — `src/`, `db/`, `migrations/`, `public/` are all fair game. There's no separate spec-writing or queuing step; implement the change, verify it builds (`npm run build`, `npx tsc --noEmit`, `npm run test:e2e`), and commit.
 
-The nightly-agents platform reads specs and writes the code. If you bypass this by editing `src/` yourself, the change will not be tracked, may not be deployed correctly, and breaks the intended workflow.
-
-**The only correct response to "add X" or "fix Y" is:**
-1. Write `specs/pending/<id>.json` with the spec
-2. Commit and push to `master`
-3. Tell the user the spec was queued
-
-## What you may change directly (without a spec)
-
-- `specs/pending/` — to add new spec files
-- `context/project.md` — to update the project brief if the user asks
-
-## What you must NEVER change directly
-
-- Any source code: `src/`, `app/`, `db/`, `migrations/`, `public/`
-- `package.json`, `vite.config.ts`, `wrangler.json` — config files
-- `AGENTS.md`, `CLAUDE.md` — these instruction files
+Be careful with `wrangler.json` and Cloudflare bindings/secrets — those tie to real provisioned resources (D1 database, Worker secrets). Confirm with the user before changing binding configuration or deleting a secret.
