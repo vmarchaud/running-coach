@@ -142,6 +142,19 @@ export interface CreatePlannedTrainingInput {
 export const createPlannedTraining = (token: string, input: CreatePlannedTrainingInput) =>
   nolioPost(token, "/create/planned/training/", input);
 
+// Nolio's update/delete endpoints are keyed by id_partner — the value *we*
+// assigned at creation, echoed back in that create call's response. Passing it
+// explicitly here overrides nolioPost's default fresh-random id_partner
+// (object spread order: the explicit one wins).
+export const updatePlannedTraining = (
+  token: string,
+  idPartner: number,
+  input: Partial<CreatePlannedTrainingInput> & { sport_id: number; name: string; date_start: string }
+) => nolioPost(token, "/update/planned/training/", { id_partner: idPartner, ...input });
+
+export const deletePlannedTraining = (token: string, idPartner: number) =>
+  nolioPost(token, "/delete/planned/training/", { id_partner: idPartner });
+
 // Same request shape as create/training (per Nolio's docs) but posted to
 // /create/competition/, which is what flags a planned training as
 // is_competition: true — Nolio's model for a race goal.

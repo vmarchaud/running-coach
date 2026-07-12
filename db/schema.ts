@@ -58,3 +58,19 @@ export const pushSubscriptions = sqliteTable("push_subscriptions", {
   auth: text("auth").notNull(),
   createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
 });
+
+// Not a mirror of training data — Nolio stays the source of truth for that.
+// This is only an index of the id_partner values the coach itself assigned
+// when creating a planned training, since Nolio's update/delete endpoints are
+// keyed by id_partner but its GET endpoints never return it (only nolio_id).
+// Without this, the coach could only update/delete a session it created
+// earlier in the very same conversation.
+export const plannedTrainingRefs = sqliteTable("planned_training_refs", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  idPartner: integer("id_partner").notNull(),
+  dateStart: text("date_start").notNull(),
+  sportId: integer("sport_id").notNull(),
+  name: text("name").notNull(),
+  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+});

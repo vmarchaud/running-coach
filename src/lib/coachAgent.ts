@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { Db } from "../../db";
-import { users } from "../../db/schema";
+import { users, plannedTrainingRefs } from "../../db/schema";
 import { callClaude, ClaudeContentBlock, ClaudeMessage, ClaudeTool } from "./claude";
 import {
   getTrainings,
@@ -11,12 +11,42 @@ import {
   getRecords,
   createTraining,
   createPlannedTraining,
+  updatePlannedTraining,
+  deletePlannedTraining,
   getKnownSports,
   getUpcomingObjectives,
 } from "./nolioApi";
 import { withNolioToken } from "./nolioSession";
 import { diffDays } from "./dateUtils";
 import { saveMemory, loadMemories } from "./memory";
+
+// Nolio's update/delete endpoints are keyed by id_partner, which its own GET
+// endpoints never return — only nolio_id. So the coach can only update/delete
+// a planned training it created itself through this app, by looking up the
+// id_partner it stashed at creation time. current_name narrows the match when
+// more than one session shares a date + sport.
+async function findPlannedTrainingRef(
+  db: Db,
+  userId: string,
+  match: { date_start: string; sport_id: number; name?: string }
+): Promise<{ idPartner: number } | null> {
+  const rows = await db
+    .select()
+    .from(plannedTrainingRefs)
+    .where(
+      and(
+        eq(plannedTrainingRefs.userId, userId),
+        eq(plannedTrainingRefs.dateStart, match.date_start),
+        eq(plannedTrainingRefs.sportId, match.sport_id)
+      )
+    )
+    .orderBy(desc(plannedTrainingRefs.createdAt))
+    .all();
+
+  const filtered = match.name ? rows.filter((r) => r.name === match.name) : rows;
+  const row = filtered[0] ?? rows[0];
+  return row ? { idPartner: row.idPartner } : null;
+}
 
 const TOOLS: ClaudeTool[] = [
   {
@@ -134,6 +164,40 @@ const TOOLS: ClaudeTool[] = [
     },
   },
   {
+    name: "update_planned_training",
+    description: "Change a future training already scheduled on the athlete's Nolio calendar. Only works for sessions this coach scheduled itself (not sessions synced from a watch, or ones scheduled outside this app) — if the athlete asks to change one that fails, tell them you can only edit sessions you scheduled yourself. Provide current_date_start and current_sport_id to locate it (from get_planned_trainings); add current_name too if more than one session shares that date and sport. Then provide the full new values — Nolio requires name/sport_id/date_start even if unchanged.",
+    input_schema: {
+      type: "object",
+      properties: {
+        current_date_start: { type: "string", description: "The date currently on the session, YYYY-MM-DD, to locate it." },
+        current_sport_id: { type: "integer", description: "The sport_id currently on the session, to locate it." },
+        current_name: { type: "string", description: "The session's current name, only needed to disambiguate multiple sessions on the same date/sport." },
+        name: { type: "string", description: "New name (required by Nolio even if unchanged)." },
+        sport_id: { type: "integer", description: "New sport_id (required by Nolio even if unchanged)." },
+        date_start: { type: "string", description: "New date, YYYY-MM-DD (required by Nolio even if unchanged)." },
+        duration: { type: "integer", description: "Seconds" },
+        distance: { type: "number", description: "Kilometers" },
+        elevation_gain: { type: "integer", description: "Meters" },
+        description: { type: "string" },
+        rpe: { type: "integer" },
+      },
+      required: ["current_date_start", "current_sport_id", "name", "sport_id", "date_start"],
+    },
+  },
+  {
+    name: "delete_planned_training",
+    description: "Remove a future training from the athlete's Nolio calendar. Only works for sessions this coach scheduled itself — if it fails, tell the athlete you can only remove sessions you scheduled yourself. Provide date_start and sport_id to locate it (from get_planned_trainings); add name too if more than one session shares that date and sport.",
+    input_schema: {
+      type: "object",
+      properties: {
+        date_start: { type: "string", description: "The session's date, YYYY-MM-DD." },
+        sport_id: { type: "integer", description: "The session's sport_id." },
+        name: { type: "string", description: "The session's name, only needed to disambiguate multiple sessions on the same date/sport." },
+      },
+      required: ["date_start", "sport_id"],
+    },
+  },
+  {
     name: "save_memory",
     description: "Save a durable note about the athlete for future conversations — a preference, an injury or recovery detail, feedback on how a session felt, a motivational trigger, anything worth remembering long-term. This persists even if the athlete clears the chat. Use it proactively whenever they share something worth remembering, not just when asked.",
     input_schema: {
@@ -179,8 +243,53 @@ async function executeTool(
         return getKnownSports(token);
       case "log_completed_training":
         return createTraining(token, input);
-      case "schedule_planned_training":
-        return createPlannedTraining(token, input);
+      case "schedule_planned_training": {
+        const result: any = await createPlannedTraining(token, input);
+        if (typeof result?.id_partner === "number") {
+          await db.insert(plannedTrainingRefs).values({
+            id: crypto.randomUUID(),
+            userId,
+            idPartner: result.id_partner,
+            dateStart: input.date_start,
+            sportId: input.sport_id,
+            name: input.name,
+          });
+        }
+        return result;
+      }
+      case "update_planned_training": {
+        const ref = await findPlannedTrainingRef(db, userId, {
+          date_start: input.current_date_start,
+          sport_id: input.current_sport_id,
+          name: input.current_name,
+        });
+        if (!ref) {
+          throw new Error(
+            "Couldn't find a session I scheduled matching that date/sport — I can only update sessions I created myself."
+          );
+        }
+        const result: any = await updatePlannedTraining(token, ref.idPartner, input);
+        await db
+          .update(plannedTrainingRefs)
+          .set({ dateStart: input.date_start, sportId: input.sport_id, name: input.name })
+          .where(eq(plannedTrainingRefs.idPartner, ref.idPartner));
+        return result;
+      }
+      case "delete_planned_training": {
+        const ref = await findPlannedTrainingRef(db, userId, {
+          date_start: input.date_start,
+          sport_id: input.sport_id,
+          name: input.name,
+        });
+        if (!ref) {
+          throw new Error(
+            "Couldn't find a session I scheduled matching that date/sport — I can only delete sessions I created myself."
+          );
+        }
+        await deletePlannedTraining(token, ref.idPartner);
+        await db.delete(plannedTrainingRefs).where(eq(plannedTrainingRefs.idPartner, ref.idPartner));
+        return { ok: true };
+      }
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -191,7 +300,9 @@ const BASE_SYSTEM_PROMPT = `You are an expert running coach embedded in the athl
 
 Use the tools to ground every answer in real data — pull recent trainings, HRV, and health metrics before giving advice on training load, recovery, or race readiness.
 
-When the athlete asks you to plan or schedule training (a single session or a multi-day/multi-week plan), do NOT call schedule_planned_training or log_completed_training yet. First write out the full proposed plan in plain text (dates, sessions, distances, paces, RPE) and ask the athlete to confirm or adjust it. Only call the write tools once they've explicitly confirmed (e.g. "yes", "looks good", "go ahead") or asked you to change something and then re-confirmed. The one exception: if the athlete explicitly says to just create it without review (e.g. "just add it", "no need to confirm"), you can write directly.
+When the athlete asks you to plan, schedule, change, or remove training (a single session or a multi-day/multi-week plan), do NOT call schedule_planned_training, update_planned_training, delete_planned_training, or log_completed_training yet. First write out the full proposed plan or change in plain text (dates, sessions, distances, paces, RPE — or which session(s) you're about to remove/change) and ask the athlete to confirm or adjust it. Only call the write tools once they've explicitly confirmed (e.g. "yes", "looks good", "go ahead") or asked you to change something and then re-confirmed. The one exception: if the athlete explicitly says to just do it without review (e.g. "just add it", "no need to confirm"), you can write directly.
+
+You can only update or delete a planned training that this coach scheduled itself through this app — sessions synced from a watch or scheduled outside this app can't be looked up for editing. If update_planned_training or delete_planned_training fails because the session can't be found, tell the athlete plainly rather than retrying blindly.
 
 You have a persistent memory (save_memory / load_memory) separate from this chat history. Proactively save anything worth remembering across conversations: stated preferences, injuries or pain they mention, how a session actually felt versus planned, what motivates or discourages them, recurring scheduling constraints. Don't wait to be asked — a throwaway comment like "my knee's been sore" or "I hate early starts" is exactly what belongs in memory. Use what's already saved (shown below) to tailor advice instead of asking the athlete to repeat themselves.
 
@@ -279,6 +390,8 @@ const TOOL_LABELS: Record<string, string> = {
   list_known_sports: "Looking up sport types",
   log_completed_training: "Logging a completed training",
   schedule_planned_training: "Scheduling a training",
+  update_planned_training: "Updating a scheduled training",
+  delete_planned_training: "Removing a scheduled training",
   save_memory: "Saving a note",
   load_memory: "Recalling past notes",
 };
