@@ -8,13 +8,16 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
+      // Custom service worker (src/sw.ts) instead of the default generateSW
+      // one — needed to handle push/notificationclick events for real
+      // notifications. precacheAndRoute() only routes the exact precached
+      // asset URLs, so /api/* is never at risk of being caught by a SPA
+      // navigation fallback (there isn't one here, unlike generateSW).
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
       registerType: "autoUpdate",
-      workbox: {
-        // Never let the SPA navigation fallback intercept API calls (e.g. the
-        // Nolio OAuth redirect) — without this, clicking "Connect with Nolio"
-        // just re-serves the cached app shell instead of hitting the network.
-        navigateFallbackDenylist: [/^\/api\//],
-      },
+      injectManifest: {},
       manifest: {
         name: "Running Coach",
         short_name: "Running Coach",

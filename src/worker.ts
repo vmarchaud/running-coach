@@ -7,6 +7,8 @@ import usersRouter from "./routes/users";
 import sessionsRouter from "./routes/sessions";
 import nolioRouter from "./routes/nolio";
 import coachRouter from "./routes/coach";
+import notificationsRouter from "./routes/notifications";
+import { runScheduledCheckins } from "./lib/checkin";
 
 type Bindings = {
   ASSETS: Fetcher;
@@ -14,6 +16,7 @@ type Bindings = {
   NOLIO_CLIENT_SECRET: string;
   NOLIO_REDIRECT_URI: string;
   NVIDIA_API_KEY: string;
+  VAPID_PRIVATE_KEY: string;
 };
 type Variables = { userId: string };
 
@@ -51,7 +54,15 @@ app.route("/api/users", usersRouter);
 app.route("/api/sessions", sessionsRouter);
 app.route("/api/nolio", nolioRouter);
 app.route("/api/coach", coachRouter);
+app.route("/api/notifications", notificationsRouter);
 
 app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
-export default app;
+export default {
+  fetch: app.fetch,
+  // Cloudflare Cron Trigger (see wrangler.json) — runs the coach's periodic
+  // check-in/auto-planning job for every athlete due for one.
+  scheduled(_event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
+    ctx.waitUntil(runScheduledCheckins(env));
+  },
+};
