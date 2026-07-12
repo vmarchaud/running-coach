@@ -72,33 +72,50 @@ router.post("/chat", async (c) => {
 
   const withUserMessage: ClaudeMessage[] = [...history, { role: "user", content: body.message }];
 
-  try {
-    const { reply, messages } = await runCoachAgent(
-      db,
-      userId,
-      c.env.NOLIO_CLIENT_SECRET,
-      c.env.NVIDIA_API_KEY,
-      withUserMessage
-    );
+  // Streamed as newline-delimited JSON so the frontend can show each tool call
+  // (e.g. "Checking recent trainings...") live while the agent works in the
+  // background, instead of a single blocking request/response.
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const encoder = new TextEncoder();
+  const send = (obj: unknown) => writer.write(encoder.encode(`${JSON.stringify(obj)}\n`));
 
-    const newMessages = messages.slice(history.length);
-    if (newMessages.length > 0) {
-      await db.batch(
-        newMessages.map((m) =>
-          db.insert(coachMessages).values({
-            id: crypto.randomUUID(),
-            userId,
-            role: m.role,
-            content: JSON.stringify(m.content),
-          })
-        ) as any
+  (async () => {
+    try {
+      const { reply, messages } = await runCoachAgent(
+        db,
+        userId,
+        c.env.NOLIO_CLIENT_SECRET,
+        c.env.NVIDIA_API_KEY,
+        withUserMessage,
+        (event) => send(event)
       );
-    }
 
-    return c.json({ reply, messages });
-  } catch (e: any) {
-    return c.json({ error: e.message ?? "Coach agent failed" }, 500);
-  }
+      const newMessages = messages.slice(history.length);
+      if (newMessages.length > 0) {
+        await db.batch(
+          newMessages.map((m) =>
+            db.insert(coachMessages).values({
+              id: crypto.randomUUID(),
+              userId,
+              role: m.role,
+              content: JSON.stringify(m.content),
+            })
+          ) as any
+        );
+      }
+
+      await send({ type: "done", reply, messages });
+    } catch (e: any) {
+      await send({ type: "error", error: e.message ?? "Coach agent failed" });
+    } finally {
+      await writer.close();
+    }
+  })();
+
+  return new Response(readable, {
+    headers: { "Content-Type": "application/x-ndjson; charset=utf-8" },
+  });
 });
 
 export default router;

@@ -1,4 +1,4 @@
-const getUserId = () => localStorage.getItem("userId") ?? "";
+export const getUserId = () => localStorage.getItem("userId") ?? "";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {

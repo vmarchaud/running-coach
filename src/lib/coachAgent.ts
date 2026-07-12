@@ -267,12 +267,33 @@ ${memoryLines}`;
 
 const MAX_TOOL_ITERATIONS = 10;
 
+// Human-friendly label for a tool call, shown live in the chat UI while the
+// agent is working in the background (e.g. "Checking recent trainings...").
+const TOOL_LABELS: Record<string, string> = {
+  get_recent_trainings: "Checking recent trainings",
+  get_training_detail: "Pulling up training detail",
+  get_planned_trainings: "Checking your training calendar",
+  get_hrv: "Checking HRV",
+  get_health_metrics: "Checking health metrics",
+  get_records: "Checking personal records",
+  list_known_sports: "Looking up sport types",
+  log_completed_training: "Logging a completed training",
+  schedule_planned_training: "Scheduling a training",
+  save_memory: "Saving a note",
+  load_memory: "Recalling past notes",
+};
+
+export type AgentEvent =
+  | { type: "tool_start"; id: string; name: string; label: string; input: Record<string, unknown> }
+  | { type: "tool_end"; id: string; name: string; ok: boolean };
+
 export async function runCoachAgent(
   db: Db,
   userId: string,
   nolioClientSecret: string,
   nvidiaApiKey: string,
-  history: ClaudeMessage[]
+  history: ClaudeMessage[],
+  onEvent?: (event: AgentEvent) => void | Promise<void>
 ): Promise<{ reply: string; messages: ClaudeMessage[] }> {
   const messages: ClaudeMessage[] = [...history];
   const systemPrompt = await buildSystemPrompt(db, userId, nolioClientSecret);
@@ -299,10 +320,19 @@ export async function runCoachAgent(
 
     const toolResults: ClaudeContentBlock[] = await Promise.all(
       toolUses.map(async (tu) => {
+        await onEvent?.({
+          type: "tool_start",
+          id: tu.id,
+          name: tu.name,
+          label: TOOL_LABELS[tu.name] ?? tu.name,
+          input: tu.input,
+        });
         try {
           const result = await executeTool(tu.name, tu.input, db, userId, nolioClientSecret);
+          await onEvent?.({ type: "tool_end", id: tu.id, name: tu.name, ok: true });
           return { type: "tool_result" as const, tool_use_id: tu.id, content: JSON.stringify(result) };
         } catch (e: any) {
+          await onEvent?.({ type: "tool_end", id: tu.id, name: tu.name, ok: false });
           return {
             type: "tool_result" as const,
             tool_use_id: tu.id,
