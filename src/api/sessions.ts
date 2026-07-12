@@ -15,9 +15,19 @@ export interface Session {
   isCompleted: boolean;
   plannedName: string | null;
   plannedSportId: number | null;
-  streams?: unknown;
+  streams?: StreamPoint[];
   laps?: unknown;
   zones?: unknown;
+}
+
+export interface StreamPoint {
+  time: number;
+  distance: number;
+  heartrate?: number;
+  pace?: number;
+  cadence?: number;
+  altitude?: number;
+  watts?: number;
 }
 
 export interface WeekSessions {

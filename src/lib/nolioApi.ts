@@ -135,6 +135,12 @@ export interface CreatePlannedTrainingInput {
 export const createPlannedTraining = (token: string, input: CreatePlannedTrainingInput) =>
   nolioPost(token, "/create/planned/training/", input);
 
+// Same request shape as create/training (per Nolio's docs) but posted to
+// /create/competition/, which is what flags a planned training as
+// is_competition: true — Nolio's model for a race goal.
+export const createCompetition = (token: string, input: CreatePlannedTrainingInput) =>
+  nolioPost(token, "/create/competition/", input);
+
 // Nolio has no directory endpoint for sport_id — its own docs say to discover
 // values from existing training/user data instead. This scans the athlete's own
 // history (completed + planned) so we surface real IDs (e.g. Strength Training)
