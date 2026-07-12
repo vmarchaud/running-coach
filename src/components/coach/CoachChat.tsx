@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { getCoachMessages, sendCoachMessage, clearCoachMessages, ChatMessage } from "../../api/coach";
+import { getCoachMessages, sendCoachMessageStream, clearCoachMessages, ChatMessage } from "../../api/coach";
 import { Spinner } from "../shared/Spinner";
 
 function textOf(content: ChatMessage["content"]): string {
@@ -32,6 +32,7 @@ export function CoachChat() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [activeTools, setActiveTools] = useState<{ id: string; label: string }[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export function CoachChat() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, sending]);
+  }, [messages, sending, activeTools]);
 
   const send = async () => {
     const text = input.trim();
@@ -53,14 +54,25 @@ export function CoachChat() {
     setInput("");
     setSending(true);
     setError(null);
+    setActiveTools([]);
 
     try {
-      const { messages: updated } = await sendCoachMessage(text);
-      setMessages(updated);
+      await sendCoachMessageStream(text, (event) => {
+        if (event.type === "tool_start") {
+          setActiveTools((prev) => [...prev, { id: event.id, label: event.label }]);
+        } else if (event.type === "tool_end") {
+          setActiveTools((prev) => prev.filter((t) => t.id !== event.id));
+        } else if (event.type === "done") {
+          setMessages(event.messages);
+        } else if (event.type === "error") {
+          setError(event.error);
+        }
+      });
     } catch (e: any) {
       setError(e.message ?? "Something went wrong talking to your coach.");
     } finally {
       setSending(false);
+      setActiveTools([]);
     }
   };
 
@@ -142,8 +154,17 @@ export function CoachChat() {
         ))}
 
         {sending && (
-          <div className="self-start bg-neutral-800 rounded-2xl px-4 py-3">
-            <Spinner className="w-4 h-4" />
+          <div className="self-start bg-neutral-800 rounded-2xl px-4 py-3 flex flex-col gap-1.5">
+            {activeTools.length === 0 ? (
+              <Spinner className="w-4 h-4" />
+            ) : (
+              activeTools.map((t) => (
+                <div key={t.id} className="flex items-center gap-2 text-xs text-neutral-400">
+                  <Spinner className="w-3 h-3" />
+                  <span>{t.label}...</span>
+                </div>
+              ))
+            )}
           </div>
         )}
 

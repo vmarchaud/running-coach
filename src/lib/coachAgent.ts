@@ -189,7 +189,9 @@ async function executeTool(
 
 const BASE_SYSTEM_PROMPT = `You are an expert running coach embedded in the athlete's training app. You have direct read/write access to their Nolio account, which aggregates data synced from their Coros watch and Whoop band (trainings, HRV, sleep, resting heart rate, weight, personal records).
 
-Use the tools to ground every answer in real data — pull recent trainings, HRV, and health metrics before giving advice on training load, recovery, or race readiness. When the athlete asks you to log a workout or schedule a future session, use the write tools directly rather than just describing what they should do.
+Use the tools to ground every answer in real data — pull recent trainings, HRV, and health metrics before giving advice on training load, recovery, or race readiness.
+
+When the athlete asks you to plan or schedule training (a single session or a multi-day/multi-week plan), do NOT call schedule_planned_training or log_completed_training yet. First write out the full proposed plan in plain text (dates, sessions, distances, paces, RPE) and ask the athlete to confirm or adjust it. Only call the write tools once they've explicitly confirmed (e.g. "yes", "looks good", "go ahead") or asked you to change something and then re-confirmed. The one exception: if the athlete explicitly says to just create it without review (e.g. "just add it", "no need to confirm"), you can write directly.
 
 You have a persistent memory (save_memory / load_memory) separate from this chat history. Proactively save anything worth remembering across conversations: stated preferences, injuries or pain they mention, how a session actually felt versus planned, what motivates or discourages them, recurring scheduling constraints. Don't wait to be asked — a throwaway comment like "my knee's been sore" or "I hate early starts" is exactly what belongs in memory. Use what's already saved (shown below) to tailor advice instead of asking the athlete to repeat themselves.
 
@@ -263,14 +265,35 @@ What you've learned about this athlete so far (most recent 10 — call load_memo
 ${memoryLines}`;
 }
 
-const MAX_TOOL_ITERATIONS = 6;
+const MAX_TOOL_ITERATIONS = 10;
+
+// Human-friendly label for a tool call, shown live in the chat UI while the
+// agent is working in the background (e.g. "Checking recent trainings...").
+const TOOL_LABELS: Record<string, string> = {
+  get_recent_trainings: "Checking recent trainings",
+  get_training_detail: "Pulling up training detail",
+  get_planned_trainings: "Checking your training calendar",
+  get_hrv: "Checking HRV",
+  get_health_metrics: "Checking health metrics",
+  get_records: "Checking personal records",
+  list_known_sports: "Looking up sport types",
+  log_completed_training: "Logging a completed training",
+  schedule_planned_training: "Scheduling a training",
+  save_memory: "Saving a note",
+  load_memory: "Recalling past notes",
+};
+
+export type AgentEvent =
+  | { type: "tool_start"; id: string; name: string; label: string; input: Record<string, unknown> }
+  | { type: "tool_end"; id: string; name: string; ok: boolean };
 
 export async function runCoachAgent(
   db: Db,
   userId: string,
   nolioClientSecret: string,
   nvidiaApiKey: string,
-  history: ClaudeMessage[]
+  history: ClaudeMessage[],
+  onEvent?: (event: AgentEvent) => void | Promise<void>
 ): Promise<{ reply: string; messages: ClaudeMessage[] }> {
   const messages: ClaudeMessage[] = [...history];
   const systemPrompt = await buildSystemPrompt(db, userId, nolioClientSecret);
@@ -297,10 +320,19 @@ export async function runCoachAgent(
 
     const toolResults: ClaudeContentBlock[] = await Promise.all(
       toolUses.map(async (tu) => {
+        await onEvent?.({
+          type: "tool_start",
+          id: tu.id,
+          name: tu.name,
+          label: TOOL_LABELS[tu.name] ?? tu.name,
+          input: tu.input,
+        });
         try {
           const result = await executeTool(tu.name, tu.input, db, userId, nolioClientSecret);
+          await onEvent?.({ type: "tool_end", id: tu.id, name: tu.name, ok: true });
           return { type: "tool_result" as const, tool_use_id: tu.id, content: JSON.stringify(result) };
         } catch (e: any) {
+          await onEvent?.({ type: "tool_end", id: tu.id, name: tu.name, ok: false });
           return {
             type: "tool_result" as const,
             tool_use_id: tu.id,
