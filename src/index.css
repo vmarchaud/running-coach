@@ -1,8 +1,20 @@
 @import "tailwindcss";
+@import "./typeset.css";
+
+.typeset-docs {
+  --typeset-font-body: var(--font-geist);
+  --typeset-font-heading: var(--font-geist);
+  --typeset-font-mono: var(--font-geist-mono);
+  --typeset-size: 15px;
+  --typeset-leading: 1.75;
+  --typeset-flow: 1.25em;
+}
 
 @theme {
   --font-display: "Bebas Neue", sans-serif;
   --font-sans: "Barlow", sans-serif;
+  --font-geist: "Geist", sans-serif;
+  --font-geist-mono: "Geist Mono", monospace;
 
   --color-brand-50: #e6fff4;
   --color-brand-100: #b3ffdf;

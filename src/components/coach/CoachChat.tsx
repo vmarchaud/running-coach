@@ -12,19 +12,6 @@ function textOf(content: ChatMessage["content"]): string {
     .join("\n");
 }
 
-const markdownComponents = {
-  p: (props: any) => <p className="mb-2 last:mb-0" {...props} />,
-  strong: (props: any) => <strong className="font-semibold" {...props} />,
-  ul: (props: any) => <ul className="list-disc pl-4 mb-2 space-y-0.5" {...props} />,
-  ol: (props: any) => <ol className="list-decimal pl-4 mb-2 space-y-0.5" {...props} />,
-  li: (props: any) => <li {...props} />,
-  h1: (props: any) => <h1 className="text-base font-bold mt-3 mb-1 first:mt-0" {...props} />,
-  h2: (props: any) => <h2 className="text-base font-bold mt-3 mb-1 first:mt-0" {...props} />,
-  h3: (props: any) => <h3 className="text-sm font-bold mt-2 mb-1 first:mt-0" {...props} />,
-  code: (props: any) => <code className="bg-black/30 rounded px-1 py-0.5 text-xs" {...props} />,
-  a: (props: any) => <a className="underline text-brand-400" target="_blank" rel="noreferrer" {...props} />,
-};
-
 export function CoachChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
@@ -144,9 +131,9 @@ export function CoachChat() {
             }`}
           >
             {m.role === "assistant" ? (
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                {textOf(m.content)}
-              </ReactMarkdown>
+              <div className="typeset typeset-docs max-w-[37em]">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{textOf(m.content)}</ReactMarkdown>
+              </div>
             ) : (
               textOf(m.content)
             )}
