@@ -314,8 +314,11 @@ export async function runCoachAgent(
     messages.push({ role: "user", content: toolResults });
   }
 
-  return {
-    reply: "I ran into trouble gathering everything I needed — try asking again, maybe with a narrower question.",
-    messages,
-  };
+  // Hit the iteration cap without a final text reply. Push it as an assistant
+  // message too — not just returning it as `reply` — otherwise the frontend
+  // (which renders from `messages`, not `reply`) has nothing with a text block
+  // to show, and the conversation appears to have gotten no response at all.
+  const fallbackReply = "I ran into trouble gathering everything I needed — try asking again, maybe with a narrower question.";
+  messages.push({ role: "assistant", content: fallbackReply });
+  return { reply: fallbackReply, messages };
 }

@@ -11,6 +11,9 @@ export const users = sqliteTable("users", {
   daysPerWeek: integer("days_per_week").notNull(),
   raceDate: text("race_date").notNull(),
   targetTimeMinutes: integer("target_time_minutes"),
+  // Last time the scheduled check-in ran for this athlete — gates the cron
+  // job's cadence (roughly every 2-3 days), not read/written anywhere else.
+  lastCheckinAt: text("last_checkin_at"),
   createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
 });
 
@@ -42,5 +45,16 @@ export const coachMemories = sqliteTable("coach_memories", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull(),
   content: text("content").notNull(),
+  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+});
+
+// Web Push subscriptions — one row per browser/device the athlete has enabled
+// notifications on.
+export const pushSubscriptions = sqliteTable("push_subscriptions", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
   createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
 });

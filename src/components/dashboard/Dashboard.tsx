@@ -6,6 +6,7 @@ import { WeeklyProgress } from "./WeeklyProgress";
 import { PlanProgress } from "./PlanProgress";
 import { ThisWeekWorkouts } from "./ThisWeekWorkouts";
 import { NolioConnect } from "./NolioConnect";
+import { NotificationOptIn } from "./NotificationOptIn";
 import { Objectives } from "./Objectives";
 import { Spinner } from "../shared/Spinner";
 import { addDays, diffDays, isoDate, weekMondayFromDate } from "../../lib/dateUtils";
@@ -85,6 +86,10 @@ export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
 
       <div className="px-4">
         <NolioConnect />
+      </div>
+
+      <div className="px-4">
+        <NotificationOptIn />
       </div>
 
       <div className="px-4">
