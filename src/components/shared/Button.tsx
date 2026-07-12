@@ -1,4 +1,6 @@
 import { ButtonHTMLAttributes } from "react";
+import { Button as ShadcnButton } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary" | "ghost" | "danger";
@@ -6,35 +8,28 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   fullWidth?: boolean;
 }
 
-export function Button({
-  variant = "primary",
-  size = "md",
-  fullWidth,
-  className = "",
-  children,
-  ...props
-}: ButtonProps) {
-  const base = "inline-flex items-center justify-center font-semibold rounded-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed";
+const VARIANT_MAP = {
+  primary: "default",
+  secondary: "secondary",
+  ghost: "ghost",
+  danger: "destructive",
+} as const;
 
-  const variants = {
-    primary: "bg-brand-500 text-white hover:bg-brand-400",
-    secondary: "bg-neutral-800 text-white hover:bg-neutral-700",
-    ghost: "bg-transparent text-neutral-300 hover:bg-neutral-800",
-    danger: "bg-red-600 text-white hover:bg-red-500",
-  };
+// This app's tap targets (py-3/py-4, larger than shadcn's compact default
+// sizes) matter on a mobile-first PWA, so sizing stays a local override on
+// top of the shared shadcn Button rather than shadcn's own size scale.
+const SIZE_CLASSES = {
+  sm: "px-3 py-1.5 text-sm h-auto",
+  md: "px-5 py-3 text-base h-auto",
+  lg: "px-6 py-4 text-lg h-auto",
+};
 
-  const sizes = {
-    sm: "px-3 py-1.5 text-sm",
-    md: "px-5 py-3 text-base",
-    lg: "px-6 py-4 text-lg",
-  };
-
+export function Button({ variant = "primary", size = "md", fullWidth, className, ...props }: ButtonProps) {
   return (
-    <button
-      className={`${base} ${variants[variant]} ${sizes[size]} ${fullWidth ? "w-full" : ""} ${className}`}
+    <ShadcnButton
+      variant={VARIANT_MAP[variant]}
+      className={cn("rounded-xl font-semibold active:scale-95", SIZE_CLASSES[size], fullWidth && "w-full", className)}
       {...props}
-    >
-      {children}
-    </button>
+    />
   );
 }
