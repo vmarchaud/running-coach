@@ -1,4 +1,6 @@
 import { Button } from "../shared/Button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface Props {
   value: string;
@@ -43,13 +45,16 @@ export function StepRaceDate({ value, onChange, onNext }: Props) {
       </div>
 
       <div>
-        <p className="text-neutral-500 text-sm mb-2">Or pick a specific date</p>
-        <input
+        <Label htmlFor="race-date" className="text-neutral-500 text-sm mb-2">
+          Or pick a specific date
+        </Label>
+        <Input
+          id="race-date"
           type="date"
           value={value}
           min={today}
           onChange={(e) => onChange(e.target.value)}
-          className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-3 text-white w-full focus:outline-none focus:border-brand-500 transition-colors [color-scheme:dark]"
+          className="h-auto bg-neutral-900 border-neutral-700 rounded-xl px-4 py-3 text-white w-full focus-visible:border-brand-500 transition-colors [color-scheme:dark]"
         />
       </div>
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getVapidPublicKey, subscribeToPush, unsubscribeFromPush } from "../../api/notifications";
+import { Card, CardContent } from "@/components/ui/card";
 
 function urlBase64ToUint8Array(base64Url: string): ArrayBuffer {
   const padding = "=".repeat((4 - (base64Url.length % 4)) % 4);
@@ -74,53 +75,59 @@ export function NotificationOptIn() {
 
   if (status === "denied") {
     return (
-      <div className="bg-neutral-900 rounded-2xl p-4">
-        <p className="text-sm font-semibold text-neutral-300">Notifications blocked</p>
-        <p className="text-neutral-500 text-xs mt-1">
-          Enable notifications for this site in your browser settings if you'd like check-ins from your coach.
-        </p>
-      </div>
+      <Card>
+        <CardContent>
+          <p className="text-sm font-semibold text-neutral-300">Notifications blocked</p>
+          <p className="text-neutral-500 text-xs mt-1">
+            Enable notifications for this site in your browser settings if you'd like check-ins from your coach.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
   if (status === "on") {
     return (
-      <div className="bg-neutral-900 rounded-2xl p-4 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-brand-400">🔔 Coach check-ins enabled</p>
-          <p className="text-neutral-500 text-xs mt-0.5">
-            You'll get a notification every couple of days with an update and plan.
-          </p>
-        </div>
-        <button
-          onClick={disable}
-          disabled={busy}
-          className="text-neutral-500 hover:text-red-400 text-xs flex-shrink-0 disabled:opacity-50"
-        >
-          Turn off
-        </button>
-      </div>
+      <Card>
+        <CardContent className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-brand-400">🔔 Coach check-ins enabled</p>
+            <p className="text-neutral-500 text-xs mt-0.5">
+              You'll get a notification every couple of days with an update and plan.
+            </p>
+          </div>
+          <button
+            onClick={disable}
+            disabled={busy}
+            className="text-neutral-500 hover:text-red-400 text-xs flex-shrink-0 disabled:opacity-50"
+          >
+            Turn off
+          </button>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="bg-neutral-900 border border-dashed border-neutral-700 rounded-2xl p-4">
-      <div className="flex items-center gap-3 mb-3">
-        <span className="text-2xl">🔔</span>
-        <div>
-          <p className="text-sm font-semibold">Get coach check-ins</p>
-          <p className="text-neutral-500 text-xs">
-            Every couple of days, your coach reviews your training and plans ahead — with a notification.
-          </p>
+    <Card className="border-dashed border-neutral-700">
+      <CardContent>
+        <div className="flex items-center gap-3 mb-3">
+          <span className="text-2xl">🔔</span>
+          <div>
+            <p className="text-sm font-semibold">Get coach check-ins</p>
+            <p className="text-neutral-500 text-xs">
+              Every couple of days, your coach reviews your training and plans ahead — with a notification.
+            </p>
+          </div>
         </div>
-      </div>
-      <button
-        onClick={enable}
-        disabled={busy}
-        className="w-full text-center bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl py-2 text-sm font-semibold disabled:opacity-50 transition-colors"
-      >
-        {busy ? "Enabling..." : "Enable notifications"}
-      </button>
-    </div>
+        <button
+          onClick={enable}
+          disabled={busy}
+          className="w-full text-center bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl py-2 text-sm font-semibold disabled:opacity-50 transition-colors"
+        >
+          {busy ? "Enabling..." : "Enable notifications"}
+        </button>
+      </CardContent>
+    </Card>
   );
 }

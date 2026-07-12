@@ -6,6 +6,8 @@ import { WorkoutLogDisplay } from "./WorkoutLogDisplay";
 import { RunStreams } from "./RunStreams";
 import { Spinner } from "../shared/Spinner";
 import { Button } from "../shared/Button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 interface Props {
   sessionId: number;
@@ -44,11 +46,12 @@ export function WorkoutDetail({ sessionId, isCompleted, onBack, onLogged }: Prop
 
   return (
     <div className="flex flex-col pb-8">
-      <div className="flex items-center gap-3 px-4 pt-5 pb-4 border-b border-neutral-800">
+      <div className="flex items-center gap-3 px-4 pt-5 pb-4">
         <button onClick={onBack} className="text-neutral-400 hover:text-white p-1">
           ← Back
         </button>
       </div>
+      <Separator />
 
       <div className="px-4 pt-5 flex flex-col gap-5">
         <div>
@@ -60,36 +63,40 @@ export function WorkoutDetail({ sessionId, isCompleted, onBack, onLogged }: Prop
           </div>
         </div>
 
-        <div className="bg-neutral-900 rounded-2xl p-4 grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">Distance</p>
-            <p className="text-2xl font-bold">{session.distance != null ? `${session.distance} km` : "—"}</p>
-          </div>
-          <div>
-            <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">Duration</p>
-            <p className="text-2xl font-bold">
-              {session.duration != null ? `${Math.round(session.duration / 60)} min` : "—"}
-            </p>
-          </div>
-          {session.elevationGain != null && (
+        <Card>
+          <CardContent className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">Elevation</p>
-              <p className="text-lg font-semibold">{session.elevationGain} m</p>
+              <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">Distance</p>
+              <p className="text-2xl font-bold">{session.distance != null ? `${session.distance} km` : "—"}</p>
             </div>
-          )}
-          {session.rpe != null && (
             <div>
-              <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">RPE</p>
-              <p className="text-lg font-semibold">{session.rpe}/10</p>
+              <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">Duration</p>
+              <p className="text-2xl font-bold">
+                {session.duration != null ? `${Math.round(session.duration / 60)} min` : "—"}
+              </p>
             </div>
-          )}
-        </div>
+            {session.elevationGain != null && (
+              <div>
+                <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">Elevation</p>
+                <p className="text-lg font-semibold">{session.elevationGain} m</p>
+              </div>
+            )}
+            {session.rpe != null && (
+              <div>
+                <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">RPE</p>
+                <p className="text-lg font-semibold">{session.rpe}/10</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {session.description && (
-          <div className="bg-neutral-900 rounded-2xl p-4">
-            <p className="text-neutral-500 text-xs uppercase tracking-wide mb-2">Notes</p>
-            <p className="text-neutral-300 text-sm leading-relaxed">{session.description}</p>
-          </div>
+          <Card>
+            <CardContent>
+              <p className="text-neutral-500 text-xs uppercase tracking-wide mb-2">Notes</p>
+              <p className="text-neutral-300 text-sm leading-relaxed">{session.description}</p>
+            </CardContent>
+          </Card>
         )}
 
         {session.streams && session.streams.length > 1 && <RunStreams streams={session.streams} />}

@@ -1,5 +1,6 @@
+import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
 export function Spinner({ className = "" }: { className?: string }) {
-  return (
-    <div className={`inline-block w-6 h-6 border-2 border-neutral-700 border-t-brand-500 rounded-full animate-spin ${className}`} />
-  );
+  return <Loader2 className={cn("w-6 h-6 animate-spin text-brand-500", className)} />;
 }

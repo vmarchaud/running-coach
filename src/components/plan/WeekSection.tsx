@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Session } from "../../api/sessions";
 import { WorkoutCard } from "../workout/WorkoutCard";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 interface Props {
   weekStart: string;
@@ -23,31 +24,33 @@ export function WeekSection({ weekStart, sessions, isCurrentWeek, defaultOpen, o
 
   return (
     <div className="border-b border-neutral-800">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-neutral-900/50 transition-colors"
-      >
-        <div className="text-left">
-          <div className="flex items-center gap-2">
-            <span className={`font-semibold ${isCurrentWeek ? "text-brand-400" : "text-white"}`}>
-              Week of {label}
-            </span>
-            {isCurrentWeek && (
-              <span className="text-xs bg-brand-900/50 text-brand-400 px-2 py-0.5 rounded-full">
-                Current
-              </span>
-            )}
+      <CardHeader className="p-0">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 hover:bg-neutral-900/50 transition-colors"
+        >
+          <div className="text-left">
+            <div className="flex items-center gap-2">
+              <CardTitle className={isCurrentWeek ? "text-brand-400" : "text-white"}>
+                Week of {label}
+              </CardTitle>
+              {isCurrentWeek && (
+                <span className="text-xs bg-brand-900/50 text-brand-400 px-2 py-0.5 rounded-full">
+                  Current
+                </span>
+              )}
+            </div>
+            <div className="text-neutral-500 text-xs">
+              {sessions.length} session{sessions.length === 1 ? "" : "s"} · {Math.round(totalKm * 10) / 10} km
+            </div>
           </div>
-          <div className="text-neutral-500 text-xs">
-            {sessions.length} session{sessions.length === 1 ? "" : "s"} · {Math.round(totalKm * 10) / 10} km
-          </div>
-        </div>
 
-        <span className="text-neutral-500 text-sm">{open ? "▲" : "▼"}</span>
-      </button>
+          <span className="text-neutral-500 text-sm">{open ? "▲" : "▼"}</span>
+        </button>
+      </CardHeader>
 
       {open && (
-        <div className="px-4 pb-4 flex flex-col gap-2">
+        <CardContent className="pb-4 flex flex-col gap-2">
           {sessions.map((s) => (
             <WorkoutCard
               key={s.id}
@@ -56,7 +59,7 @@ export function WeekSection({ weekStart, sessions, isCurrentWeek, defaultOpen, o
               onClick={() => onWorkoutSelect(s.id, s.isCompleted)}
             />
           ))}
-        </div>
+        </CardContent>
       )}
     </div>
   );
