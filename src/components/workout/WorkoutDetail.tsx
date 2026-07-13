@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { getSessionDetail, Session } from "../../api/sessions";
 import { SportBadge, StatusBadge } from "../shared/Badge";
 import { LogForm } from "./LogForm";
@@ -67,10 +69,15 @@ export function WorkoutDetail({ sessionId, isCompleted, onBack, onLogged }: Prop
 
         <Card>
           <CardContent className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">{t("workout.distanceStat")}</p>
-              <p className="text-2xl font-bold">{session.distance != null ? `${session.distance} km` : t("workout.noDataPlaceholder")}</p>
-            </div>
+            {/* A real nonzero distance only, not the raw != null check — Nolio
+                returns a recorded 0 (not null) for duration-only sessions like
+                strength work, where a "0 km" stat is just noise. */}
+            {!!session.distance && (
+              <div>
+                <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">{t("workout.distanceStat")}</p>
+                <p className="text-2xl font-bold">{session.distance} km</p>
+              </div>
+            )}
             <div>
               <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">{t("workout.durationStat")}</p>
               <p className="text-2xl font-bold">
@@ -96,7 +103,9 @@ export function WorkoutDetail({ sessionId, isCompleted, onBack, onLogged }: Prop
           <Card>
             <CardContent>
               <p className="text-neutral-500 text-xs uppercase tracking-wide mb-2">{t("workout.notesStat")}</p>
-              <p className="text-neutral-300 text-sm leading-relaxed">{session.description}</p>
+              <div className="typeset typeset-docs max-w-none text-neutral-300 text-sm">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{session.description}</ReactMarkdown>
+              </div>
             </CardContent>
           </Card>
         )}

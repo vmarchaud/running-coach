@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { useI18n } from "../../lib/i18n/context";
 import { TextSize } from "../../lib/useTextSize";
 import { Language } from "../../lib/i18n/dictionaries";
+import { StrengthMaxes } from "./StrengthMaxes";
 
 interface Props {
   textSize: TextSize;
@@ -78,6 +79,10 @@ export function Settings({ textSize, onTextSizeChange }: Props) {
             />
           </CardContent>
         </Card>
+      </div>
+
+      <div className="px-4">
+        <StrengthMaxes />
       </div>
     </div>
   );

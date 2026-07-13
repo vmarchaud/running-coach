@@ -12,6 +12,25 @@ const CHECKIN_INTERVAL_HOURS = 60;
 const CHECKIN_PROMPT =
   "It's been a couple of days since we last talked. Check my recent training, recovery (HRV/sleep), and how many sessions I have planned for the next week. If my plan is running low, schedule what's needed to keep me on track for my goal. Give me a short, friendly update on where things stand.";
 
+// The coach's reply is markdown (headers, tables, bold) meant for the chat's
+// rendered view — a push notification is plain text, so **bold**, | table |
+// pipes, # headers, and [links](url) need stripping or they show up as raw
+// literal syntax in the OS notification tray.
+function stripMarkdownForNotification(md: string): string {
+  return md
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^\|?\s*[-:]+\s*(\|\s*[-:]+\s*)+\|?$/gm, "") // table separator rows
+    .replace(/\|/g, " ")
+    .replace(/^[-*+]\s+/gm, "")
+    .replace(/\n+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 interface CheckinEnv {
   DB: D1Database;
   NOLIO_CLIENT_SECRET: string;
@@ -86,13 +105,14 @@ async function checkinForUser(db: Db, userId: string, env: CheckinEnv): Promise<
   const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId)).all();
   if (subs.length === 0) return;
 
-  const summary = reply.length > 140 ? `${reply.slice(0, 137)}...` : reply;
+  const plainReply = stripMarkdownForNotification(reply);
+  const summary = plainReply.length > 140 ? `${plainReply.slice(0, 137)}...` : plainReply;
 
   for (const sub of subs) {
     const result = await sendPushNotification(
       { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
       env.VAPID_PRIVATE_KEY,
-      { title: "Your coach checked in", body: summary || "See what's new.", url: "/" }
+      { title: "Your coach checked in", body: summary || "See what's new.", url: "/?tab=coach" }
     );
 
     if (!result.ok && result.gone) {
