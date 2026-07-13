@@ -4,12 +4,10 @@ import { getWeekSessions, getObjectives, WeekSessions, Objective } from "../../a
 import { RaceCountdown } from "./RaceCountdown";
 import { WeeklyProgress } from "./WeeklyProgress";
 import { PlanProgress } from "./PlanProgress";
-import { ThisWeekWorkouts } from "./ThisWeekWorkouts";
-import { NolioConnect } from "./NolioConnect";
-import { NotificationOptIn } from "./NotificationOptIn";
+import { TodayWorkout } from "./TodayWorkout";
 import { Objectives } from "./Objectives";
 import { Spinner } from "../shared/Spinner";
-import { addDays, diffDays, isoDate, weekMondayFromDate } from "../../lib/dateUtils";
+import { diffDays, isoDate, weekMondayFromDate } from "../../lib/dateUtils";
 import { useI18n } from "../../lib/i18n/context";
 
 interface Props {
@@ -20,16 +18,9 @@ interface Props {
 export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
   const { t } = useI18n();
 
-  function weekLabel(offset: number): string {
-    if (offset === 0) return t("dashboard.weekLabelThisWeek");
-    if (offset === -1) return t("dashboard.weekLabelLastWeek");
-    return `${Math.abs(offset)} ${t("dashboard.weekLabelWeeksAgo")}`;
-  }
-
   const [user, setUser] = useState<{ name: string; raceDate: string } | null>(null);
   const [objectives, setObjectives] = useState<{ main: Objective | null; secondary: Objective[] } | null>(null);
   const [week, setWeek] = useState<WeekSessions | null>(null);
-  const [weekOffset, setWeekOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,12 +31,12 @@ export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
 
   useEffect(() => {
     setLoading(true);
-    const weekStart = isoDate(addDays(weekMondayFromDate(new Date()), weekOffset * 7));
+    const weekStart = isoDate(weekMondayFromDate(new Date()));
     getWeekSessions(weekStart)
       .then(setWeek)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [refreshKey, weekOffset]);
+  }, [refreshKey]);
 
   if (!user || (loading && !week)) {
     return (
@@ -92,47 +83,20 @@ export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
         </div>
       )}
 
-      <div className="px-4">
-        <NolioConnect />
+      <div className="px-4 grid grid-cols-2 gap-3">
+        <WeeklyProgress actual={week.weeklyActualKm} target={week.weeklyTargetKm} />
+        <PlanProgress completed={week.completed.length} planned={week.planned.length} />
       </div>
 
       <div className="px-4">
-        <NotificationOptIn />
-      </div>
-
-      <div className="px-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setWeekOffset((o) => o - 1)}
-              className="text-neutral-500 hover:text-white px-2 py-1 rounded-lg hover:bg-neutral-800 transition-colors"
-              aria-label={t("dashboard.prevWeek")}
-            >
-              ‹
-            </button>
-            <h2 className="font-display text-xl uppercase tracking-wide">{weekLabel(weekOffset)}</h2>
-            <button
-              onClick={() => setWeekOffset((o) => Math.min(0, o + 1))}
-              disabled={weekOffset === 0}
-              className="text-neutral-500 hover:text-white px-2 py-1 rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
-              aria-label={t("dashboard.nextWeek")}
-            >
-              ›
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <WeeklyProgress actual={week.weeklyActualKm} target={week.weeklyTargetKm} />
-          <PlanProgress completed={week.completed.length} planned={week.planned.length} />
-        </div>
+        <h2 className="font-display text-xl uppercase tracking-wide mb-3">{t("dashboard.todaySectionTitle")}</h2>
 
         {loading ? (
           <div className="flex justify-center py-8">
             <Spinner className="w-6 h-6" />
           </div>
         ) : (
-          <ThisWeekWorkouts sessions={sessions} onSelect={onWorkoutSelect} />
+          <TodayWorkout sessions={sessions} onSelect={onWorkoutSelect} />
         )}
       </div>
     </div>
