@@ -128,6 +128,61 @@ export interface CreateTrainingInput {
 export const createTraining = (token: string, input: CreateTrainingInput) =>
   nolioPost(token, "/create/training/", input);
 
+// Nolio's structured workout format (see NolioApp/NolioAPI-Documentation
+// wiki, "Structured Workout") — an array of nodes describing exactly what
+// the athlete's watch should show/beep for, step by step. Only supported on
+// planned training create/update, not on logging a completed training.
+export type StructuredWorkoutStep = AtomicStep | RepetitionNode | ExerciseNode | SupersetNode;
+
+export interface AtomicStep {
+  type?: "step";
+  step_duration_type?: "duration" | "distance";
+  open_duration?: boolean;
+  step_duration_value?: number;
+  target_value_min?: number;
+  target_value_max?: number;
+  step_percent_low?: number;
+  step_percent_high?: number;
+  rpe?: number;
+  rir?: number;
+  manual_values?: boolean;
+  intensity_type?: "warmup" | "cooldown" | "active" | "rest" | "ramp_up" | "ramp_down";
+  target_type?: "pace" | "pace_min100" | "speed" | "power" | "heartrate" | "no_target";
+  name?: string;
+  secondary_step?: AtomicStep;
+  comment?: string;
+}
+
+export interface RepetitionNode {
+  type: "repetition";
+  value: number;
+  steps: StructuredWorkoutStep[];
+}
+
+export interface ExerciseSet {
+  type: "rep" | "distance" | "duration";
+  rest?: number;
+  targets: AtomicStep[];
+  repetitions?: number;
+  distance?: number;
+  duration?: number;
+  tempo?: string;
+}
+
+export interface ExerciseNode {
+  type: "exercise";
+  name?: string;
+  instructions?: string;
+  thumbnail_url?: string;
+  media_url?: string;
+  sets: ExerciseSet[];
+}
+
+export interface SupersetNode {
+  type: "superset";
+  exercises: ExerciseNode[];
+}
+
 export interface CreatePlannedTrainingInput {
   sport_id: number;
   name: string;
@@ -137,6 +192,7 @@ export interface CreatePlannedTrainingInput {
   rpe?: number;
   distance?: number;
   elevation_gain?: number;
+  structured_workout?: StructuredWorkoutStep[];
 }
 
 export const createPlannedTraining = (token: string, input: CreatePlannedTrainingInput) =>
