@@ -112,12 +112,53 @@ function parseChatCompletion(raw: string): any {
   }
 }
 
+// NVIDIA's plan caps this key at ~40 requests/minute. Workers isolates can
+// stay warm across many requests, so a simple in-isolate sliding window
+// catches the common case (one busy isolate serving concurrent chats/cron
+// check-ins) even though it can't coordinate across isolates the way a
+// Durable Object or KV-backed counter would. Kept below the real cap (35, not
+// 40) to leave margin for whatever a distributed limiter would need — the
+// retryWithBackoff below is the actual safety net for bursts this can't see.
+const RATE_LIMIT_PER_MINUTE = 35;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+let recentCallTimestamps: number[] = [];
+
+async function throttleForRateLimit(): Promise<void> {
+  for (;;) {
+    const now = Date.now();
+    recentCallTimestamps = recentCallTimestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+    if (recentCallTimestamps.length < RATE_LIMIT_PER_MINUTE) {
+      recentCallTimestamps.push(now);
+      return;
+    }
+    const oldest = recentCallTimestamps[0];
+    const waitMs = RATE_LIMIT_WINDOW_MS - (now - oldest) + 50;
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+  }
+}
+
+// Retries on 429 (rate limited) and 503 (the "ResourceExhausted: Worker local
+// total request limit reached" error observed from the NVIDIA-hosted
+// endpoint) with exponential backoff + jitter. Anything else is returned
+// as-is for the caller to handle.
+async function fetchWithRetry(url: string, init: RequestInit, maxRetries = 4): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    await throttleForRateLimit();
+    const res = await fetch(url, init);
+    if (res.ok || (res.status !== 429 && res.status !== 503) || attempt >= maxRetries) {
+      return res;
+    }
+    const backoffMs = Math.min(1000 * 2 ** attempt, 20_000) + Math.random() * 500;
+    await new Promise((resolve) => setTimeout(resolve, backoffMs));
+  }
+}
+
 export async function callClaude(
   apiKey: string,
   messages: ClaudeMessage[],
   opts: { system?: string; tools?: ClaudeTool[]; maxTokens?: number } = {}
 ): Promise<ClaudeResponse> {
-  const res = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
+  const res = await fetchWithRetry(`${NVIDIA_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
