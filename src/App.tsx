@@ -49,7 +49,30 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const { textSize, setTextSize } = useTextSize();
 
-  const selectSession = (id: number, isCompleted: boolean) => setSelectedSession({ id, isCompleted });
+  // This SPA never pushed a browser history entry for "drilling into" a
+  // workout, so the device/browser back button had nothing to pop and just
+  // left the app entirely instead of returning to the list. Push one when a
+  // session is opened, and let popstate (fired by the back button, or by our
+  // own history.back() call from the explicit Back button) be the single
+  // place that actually closes the detail view.
+  const selectSession = (id: number, isCompleted: boolean) => {
+    window.history.pushState({ view: "workoutDetail" }, "");
+    setSelectedSession({ id, isCompleted });
+  };
+
+  const closeSelectedSession = () => {
+    if (window.history.state?.view === "workoutDetail") {
+      window.history.back();
+    } else {
+      setSelectedSession(null);
+    }
+  };
+
+  useEffect(() => {
+    const onPopState = () => setSelectedSession(null);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   useEffect(() => {
     const { userId: redirectedUserId, error } = consumeAuthRedirect();
@@ -103,10 +126,10 @@ export default function App() {
         <WorkoutDetail
           sessionId={selectedSession.id}
           isCompleted={selectedSession.isCompleted}
-          onBack={() => setSelectedSession(null)}
+          onBack={closeSelectedSession}
           onLogged={() => {
             setRefreshKey((k) => k + 1);
-            setSelectedSession(null);
+            closeSelectedSession();
           }}
         />
       </div>
