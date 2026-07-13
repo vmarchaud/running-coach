@@ -18,10 +18,32 @@ export interface Session {
   plannedSportId: number | null;
 }
 
+// A planned training built from a structured_workout (interval steps, e.g.
+// 5x1km) can come back from Nolio with distance: 0 at the top level — the
+// real distance only lives inside the structured steps, distributed across
+// possibly-nested repetition blocks. Sum it as a fallback so a session isn't
+// silently invisible in weekly distance totals just because it was built with
+// detailed steps instead of a flat distance field.
+function sumStructuredDistanceMeters(nodes: any[] | undefined): number {
+  if (!Array.isArray(nodes)) return 0;
+  let total = 0;
+  for (const node of nodes) {
+    if (!node) continue;
+    if (node.type === "repetition" && Array.isArray(node.steps)) {
+      total += sumStructuredDistanceMeters(node.steps) * (node.value ?? 1);
+    } else if (node.step_duration_type === "distance" && typeof node.step_duration_value === "number") {
+      total += node.step_duration_value;
+    }
+  }
+  return total;
+}
+
 // Nolio's raw training objects (from get/training/ and get/planned/training/) share
 // the same core fields; we normalize both into one shape and tag which list they
 // came from.
 export function mapNolioTraining(t: any, isCompleted: boolean): Session {
+  const structuredDistanceKm = sumStructuredDistanceMeters(t.structured_workout) / 1000;
+
   return {
     id: t.nolio_id,
     name: t.name,
@@ -30,7 +52,10 @@ export function mapNolioTraining(t: any, isCompleted: boolean): Session {
     dateStart: t.date_start,
     hourStart: t.hour_start || null,
     duration: t.duration ?? null,
-    distance: t.distance ?? null,
+    // `||`, not `??`, is deliberate: Nolio returns a real 0 (not null/undefined)
+    // for sessions with no recorded distance, so a nullish check alone would
+    // never fall through to the structured-workout estimate.
+    distance: t.distance || (structuredDistanceKm > 0 ? Math.round(structuredDistanceKm * 100) / 100 : null),
     elevationGain: t.elevation_gain ?? null,
     rpe: t.rpe ?? null,
     description: t.description || null,

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { getSessionDetail, Session } from "../../api/sessions";
 import { SportBadge, StatusBadge } from "../shared/Badge";
 import { LogForm } from "./LogForm";
@@ -96,7 +98,9 @@ export function WorkoutDetail({ sessionId, isCompleted, onBack, onLogged }: Prop
           <Card>
             <CardContent>
               <p className="text-neutral-500 text-xs uppercase tracking-wide mb-2">{t("workout.notesStat")}</p>
-              <p className="text-neutral-300 text-sm leading-relaxed">{session.description}</p>
+              <div className="typeset typeset-docs max-w-none text-neutral-300 text-sm">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{session.description}</ReactMarkdown>
+              </div>
             </CardContent>
           </Card>
         )}

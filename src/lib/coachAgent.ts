@@ -56,7 +56,9 @@ async function findPlannedTrainingRef(
 // expressed as a strict recursive JSON Schema, which function-calling APIs
 // don't support well) so the model can build correct nested JSON from a
 // worked example per sport.
-const STRUCTURED_WORKOUT_GUIDE = `IMPORTANT — always build a structured_workout for interval/tempo running, cycling, and Hyrox/strength sessions (not just a rest day or a plain easy run) so it reaches the athlete's watch as real step-by-step guidance, not just a description they have to read in the app themselves.`;
+const STRUCTURED_WORKOUT_GUIDE = `IMPORTANT — always build a structured_workout for interval/tempo running, cycling, and Hyrox/strength sessions (not just a rest day or a plain easy run) so it reaches the athlete's watch as real step-by-step guidance, not just a description they have to read in the app themselves.
+
+Even when you provide structured_workout, ALSO always fill the top-level distance and duration fields with the session's real totals (sum the distance/duration across every step, including inside repetition blocks — e.g. 5x1km with 90s recovery jogs between = 5km of work, not 0). The app's weekly distance target and Nolio's own summaries read those top-level fields directly, not the structured steps — leaving them blank or at 0 makes a real session look like it never happened in weekly totals.`;
 
 const STRUCTURED_WORKOUT_SCHEMA_HINT = `Nolio's structured workout format — an array of nodes. Push real structured steps for anything with intervals/reps/sets (running intervals, tempo blocks, Hyrox, strength) so the athlete's watch actually beeps/prompts through it; a plain rest day or fully steady easy run can skip this and just use duration/distance/description.
 
