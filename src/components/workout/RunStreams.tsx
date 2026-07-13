@@ -1,6 +1,7 @@
 import type { StreamPoint } from "../../api/sessions";
 import { StreamChart } from "./StreamChart";
 import { formatPace } from "../../lib/dateUtils";
+import { useI18n } from "../../lib/i18n/context";
 
 interface Props {
   streams: StreamPoint[];
@@ -14,6 +15,7 @@ const CADENCE_COLOR = "#c084fc"; // purple-400
 const PACE_CAP_MIN_PER_KM = 20;
 
 export function RunStreams({ streams }: Props) {
+  const { t } = useI18n();
   if (!streams || streams.length < 2) return null;
 
   const toKm = (s: StreamPoint) => s.distance / 1000;
@@ -37,16 +39,16 @@ export function RunStreams({ streams }: Props) {
   return (
     <div className="flex flex-col gap-3">
       {hrPoints.length > 1 && (
-        <StreamChart label="Heart rate" unit="bpm" color={HR_COLOR} points={hrPoints} />
+        <StreamChart label={t("workout.heartRateLabel")} unit="bpm" color={HR_COLOR} points={hrPoints} />
       )}
       {pacePoints.length > 1 && (
-        <StreamChart label="Pace" unit="/km" color={PACE_COLOR} points={pacePoints} invert formatValue={formatPace} />
+        <StreamChart label={t("workout.paceLabel")} unit="/km" color={PACE_COLOR} points={pacePoints} invert formatValue={formatPace} />
       )}
       {powerPoints.length > 1 && (
-        <StreamChart label="Power" unit="W" color={POWER_COLOR} points={powerPoints} />
+        <StreamChart label={t("workout.powerLabel")} unit="W" color={POWER_COLOR} points={powerPoints} />
       )}
       {cadencePoints.length > 1 && (
-        <StreamChart label="Cadence" unit="ppm" color={CADENCE_COLOR} points={cadencePoints} />
+        <StreamChart label={t("workout.cadenceLabel")} unit="ppm" color={CADENCE_COLOR} points={cadencePoints} />
       )}
     </div>
   );

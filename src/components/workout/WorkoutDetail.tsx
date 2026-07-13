@@ -8,6 +8,7 @@ import { Spinner } from "../shared/Spinner";
 import { Button } from "../shared/Button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { useI18n } from "../../lib/i18n/context";
 
 interface Props {
   sessionId: number;
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function WorkoutDetail({ sessionId, isCompleted, onBack, onLogged }: Props) {
+  const { t } = useI18n();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLogForm, setShowLogForm] = useState(false);
@@ -48,7 +50,7 @@ export function WorkoutDetail({ sessionId, isCompleted, onBack, onLogged }: Prop
     <div className="flex flex-col pb-8">
       <div className="flex items-center gap-3 px-4 pt-5 pb-4">
         <button onClick={onBack} className="text-neutral-400 hover:text-white p-1">
-          ← Back
+          ← {t("workout.backButton")}
         </button>
       </div>
       <Separator />
@@ -66,24 +68,24 @@ export function WorkoutDetail({ sessionId, isCompleted, onBack, onLogged }: Prop
         <Card>
           <CardContent className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">Distance</p>
-              <p className="text-2xl font-bold">{session.distance != null ? `${session.distance} km` : "—"}</p>
+              <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">{t("workout.distanceStat")}</p>
+              <p className="text-2xl font-bold">{session.distance != null ? `${session.distance} km` : t("workout.noDataPlaceholder")}</p>
             </div>
             <div>
-              <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">Duration</p>
+              <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">{t("workout.durationStat")}</p>
               <p className="text-2xl font-bold">
-                {session.duration != null ? `${Math.round(session.duration / 60)} min` : "—"}
+                {session.duration != null ? `${Math.round(session.duration / 60)} ${t("workout.minutesUnit")}` : t("workout.noDataPlaceholder")}
               </p>
             </div>
             {session.elevationGain != null && (
               <div>
-                <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">Elevation</p>
+                <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">{t("workout.elevationStat")}</p>
                 <p className="text-lg font-semibold">{session.elevationGain} m</p>
               </div>
             )}
             {session.rpe != null && (
               <div>
-                <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">RPE</p>
+                <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">{t("workout.rpeStat")}</p>
                 <p className="text-lg font-semibold">{session.rpe}/10</p>
               </div>
             )}
@@ -93,7 +95,7 @@ export function WorkoutDetail({ sessionId, isCompleted, onBack, onLogged }: Prop
         {session.description && (
           <Card>
             <CardContent>
-              <p className="text-neutral-500 text-xs uppercase tracking-wide mb-2">Notes</p>
+              <p className="text-neutral-500 text-xs uppercase tracking-wide mb-2">{t("workout.notesStat")}</p>
               <p className="text-neutral-300 text-sm leading-relaxed">{session.description}</p>
             </CardContent>
           </Card>
@@ -115,10 +117,10 @@ export function WorkoutDetail({ sessionId, isCompleted, onBack, onLogged }: Prop
         ) : (
           <div className="flex flex-col gap-2">
             <p className="text-neutral-500 text-xs text-center">
-              Sessions synced from Coros/Whoop mark this done automatically. Log it manually only if it won't sync.
+              {t("workout.syncNote")}
             </p>
             <Button onClick={() => setShowLogForm(true)} fullWidth size="lg">
-              Log this workout manually
+              {t("workout.logManuallyButton")}
             </Button>
           </div>
         )}

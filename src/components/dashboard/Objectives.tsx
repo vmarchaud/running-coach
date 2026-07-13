@@ -1,6 +1,7 @@
 import type { Objective } from "../../api/sessions";
 import { SportBadge } from "../shared/Badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { useI18n } from "../../lib/i18n/context";
 
 interface Props {
   main: Objective | null;
@@ -12,12 +13,13 @@ function dateLabel(dateStart: string): string {
 }
 
 export function Objectives({ main, secondary }: Props) {
+  const { t } = useI18n();
   if (!main && secondary.length === 0) return null;
 
   return (
     <Card>
       <CardContent>
-        <p className="text-neutral-500 text-xs uppercase tracking-wide mb-3">Goals · from Nolio</p>
+        <p className="text-neutral-500 text-xs uppercase tracking-wide mb-3">{t("dashboard.goalsFromNolio")}</p>
 
         {main && (
           <div className="flex items-center gap-2 mb-2">

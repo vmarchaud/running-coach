@@ -1,0 +1,28 @@
+export const coach = {
+  en: {
+    title: "Coach",
+    subtitle: "Ask about your training, recovery, or have it schedule your next session.",
+    clearChat: "Clear chat",
+    clearDialogTitle: "Clear conversation?",
+    clearDialogDescription: "This will permanently delete your chat history with your coach.",
+    historyLoadError: "Couldn't load your conversation history.",
+    genericError: "Something went wrong talking to your coach.",
+    emptyState: 'Ask me anything — "how was my week?", "am I recovered enough for a long run?", "schedule an easy run for tomorrow".',
+    thinking: "Thinking",
+    inputPlaceholder: "Message your coach...",
+    send: "Send",
+  },
+  fr: {
+    title: "Coach",
+    subtitle: "Posez vos questions sur l'entraînement, la récupération, ou demandez-lui de programmer votre prochaine séance.",
+    clearChat: "Effacer la conversation",
+    clearDialogTitle: "Effacer la conversation ?",
+    clearDialogDescription: "Cela supprimera définitivement votre historique de discussion avec votre coach.",
+    historyLoadError: "Impossible de charger votre historique de conversation.",
+    genericError: "Une erreur est survenue en contactant votre coach.",
+    emptyState: "Posez-moi n'importe quelle question — « comment s'est passée ma semaine ? », « suis-je assez récupéré pour une sortie longue ? », « programme une sortie facile pour demain ».",
+    thinking: "Réflexion en cours",
+    inputPlaceholder: "Écrivez à votre coach...",
+    send: "Envoyer",
+  },
+};

@@ -1,4 +1,5 @@
 import { Button } from "../shared/Button";
+import { useI18n } from "../../lib/i18n/context";
 
 interface Props {
   value: string;
@@ -6,40 +7,42 @@ interface Props {
   onNext: () => void;
 }
 
-const LEVELS = [
-  {
-    id: "beginner",
-    label: "Beginner",
-    emoji: "🌱",
-    desc: "I've never run 10 km or I'm getting back to it",
-  },
-  {
-    id: "intermediate",
-    label: "Intermediate",
-    emoji: "🏃",
-    desc: "I can run 10 km and train regularly",
-  },
-  {
-    id: "advanced",
-    label: "Advanced",
-    emoji: "⚡",
-    desc: "I've finished a half-marathon before",
-  },
-  {
-    id: "expert",
-    label: "Expert",
-    emoji: "🔥",
-    desc: "Targeting sub-1h30 — I train seriously",
-  },
-];
-
 export function StepFitnessLevel({ value, onChange, onNext }: Props) {
+  const { t } = useI18n();
+
+  const LEVELS = [
+    {
+      id: "beginner",
+      label: t("onboarding.fitnessBeginnerLabel"),
+      emoji: "🌱",
+      desc: t("onboarding.fitnessBeginnerDesc"),
+    },
+    {
+      id: "intermediate",
+      label: t("onboarding.fitnessIntermediateLabel"),
+      emoji: "🏃",
+      desc: t("onboarding.fitnessIntermediateDesc"),
+    },
+    {
+      id: "advanced",
+      label: t("onboarding.fitnessAdvancedLabel"),
+      emoji: "⚡",
+      desc: t("onboarding.fitnessAdvancedDesc"),
+    },
+    {
+      id: "expert",
+      label: t("onboarding.fitnessExpertLabel"),
+      emoji: "🔥",
+      desc: t("onboarding.fitnessExpertDesc"),
+    },
+  ];
+
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <p className="text-brand-400 text-sm font-semibold uppercase tracking-widest mb-2">Step 2 of 5</p>
-        <h1 className="text-3xl font-bold">What's your fitness level?</h1>
-        <p className="text-neutral-400 mt-2">Be honest — your plan will be built around this.</p>
+        <p className="text-brand-400 text-sm font-semibold uppercase tracking-widest mb-2">{t("onboarding.fitnessStepLabel")}</p>
+        <h1 className="text-3xl font-bold">{t("onboarding.fitnessTitle")}</h1>
+        <p className="text-neutral-400 mt-2">{t("onboarding.fitnessSubtitle")}</p>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -68,7 +71,7 @@ export function StepFitnessLevel({ value, onChange, onNext }: Props) {
       </div>
 
       <Button onClick={onNext} disabled={!value} fullWidth size="lg">
-        Continue
+        {t("onboarding.fitnessContinue")}
       </Button>
     </div>
   );

@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Session } from "../../api/sessions";
 import { WorkoutCard } from "../workout/WorkoutCard";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { useI18n } from "../../lib/i18n/context";
 
 interface Props {
   weekStart: string;
@@ -14,6 +15,7 @@ interface Props {
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function WeekSection({ weekStart, sessions, isCurrentWeek, defaultOpen, onWorkoutSelect }: Props) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(defaultOpen);
 
   const totalKm = sessions.reduce((s, x) => s + (x.distance ?? 0), 0);
@@ -32,16 +34,16 @@ export function WeekSection({ weekStart, sessions, isCurrentWeek, defaultOpen, o
           <div className="text-left">
             <div className="flex items-center gap-2">
               <CardTitle className={isCurrentWeek ? "text-brand-400" : "text-white"}>
-                Week of {label}
+                {t("plan.weekOf").replace("{date}", label)}
               </CardTitle>
               {isCurrentWeek && (
                 <span className="text-xs bg-brand-900/50 text-brand-400 px-2 py-0.5 rounded-full">
-                  Current
+                  {t("plan.current")}
                 </span>
               )}
             </div>
             <div className="text-neutral-500 text-xs">
-              {sessions.length} session{sessions.length === 1 ? "" : "s"} · {Math.round(totalKm * 10) / 10} km
+              {sessions.length} {sessions.length === 1 ? t("plan.sessionCountOne") : t("plan.sessionCountOther")} · {Math.round(totalKm * 10) / 10} km
             </div>
           </div>
 

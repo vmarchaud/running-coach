@@ -1,4 +1,5 @@
 import { Button } from "../shared/Button";
+import { useI18n } from "../../lib/i18n/context";
 
 interface Props {
   value: number;
@@ -6,34 +7,36 @@ interface Props {
   onNext: () => void;
 }
 
-const OPTIONS = [
-  {
-    days: 3,
-    label: "3 days",
-    desc: "Easy schedule — Mon, Wed, Sat",
-    suitable: "Good for beginners or busy weeks",
-  },
-  {
-    days: 4,
-    label: "4 days",
-    desc: "Balanced — Mon, Wed, Thu, Sat",
-    suitable: "Most popular choice",
-  },
-  {
-    days: 5,
-    label: "5 days",
-    desc: "Intensive — Mon–Fri, Sat",
-    suitable: "For serious runners with time",
-  },
-];
-
 export function StepDaysPerWeek({ value, onChange, onNext }: Props) {
+  const { t } = useI18n();
+
+  const OPTIONS = [
+    {
+      days: 3,
+      label: t("onboarding.daysPerWeek3Label"),
+      desc: t("onboarding.daysPerWeek3Desc"),
+      suitable: t("onboarding.daysPerWeek3Suitable"),
+    },
+    {
+      days: 4,
+      label: t("onboarding.daysPerWeek4Label"),
+      desc: t("onboarding.daysPerWeek4Desc"),
+      suitable: t("onboarding.daysPerWeek4Suitable"),
+    },
+    {
+      days: 5,
+      label: t("onboarding.daysPerWeek5Label"),
+      desc: t("onboarding.daysPerWeek5Desc"),
+      suitable: t("onboarding.daysPerWeek5Suitable"),
+    },
+  ];
+
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <p className="text-brand-400 text-sm font-semibold uppercase tracking-widest mb-2">Step 4 of 5</p>
-        <h1 className="text-3xl font-bold">How many days per week?</h1>
-        <p className="text-neutral-400 mt-2">Be realistic — consistency beats intensity.</p>
+        <p className="text-brand-400 text-sm font-semibold uppercase tracking-widest mb-2">{t("onboarding.daysPerWeekStepLabel")}</p>
+        <h1 className="text-3xl font-bold">{t("onboarding.daysPerWeekTitle")}</h1>
+        <p className="text-neutral-400 mt-2">{t("onboarding.daysPerWeekSubtitle")}</p>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -60,7 +63,7 @@ export function StepDaysPerWeek({ value, onChange, onNext }: Props) {
       </div>
 
       <Button onClick={onNext} fullWidth size="lg">
-        Continue
+        {t("onboarding.daysPerWeekContinue")}
       </Button>
     </div>
   );

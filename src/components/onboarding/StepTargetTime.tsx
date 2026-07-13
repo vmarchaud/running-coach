@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "../shared/Button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "../../lib/i18n/context";
 
 interface Props {
   fitnessLevel: string;
@@ -10,32 +11,34 @@ interface Props {
   onNext: () => void;
 }
 
-const SUGGESTIONS: Record<string, { label: string; minutes: number }[]> = {
-  beginner: [
-    { label: "Just finish", minutes: 0 },
-    { label: "Under 2h30", minutes: 150 },
-    { label: "Under 2h15", minutes: 135 },
-  ],
-  intermediate: [
-    { label: "Just finish", minutes: 0 },
-    { label: "Under 2h", minutes: 120 },
-    { label: "Under 1h50", minutes: 110 },
-  ],
-  advanced: [
-    { label: "Under 1h45", minutes: 105 },
-    { label: "Under 1h40", minutes: 100 },
-    { label: "Under 1h35", minutes: 95 },
-  ],
-  expert: [
-    { label: "Under 1h35", minutes: 95 },
-    { label: "Under 1h30", minutes: 90 },
-    { label: "Sub 1h25", minutes: 85 },
-  ],
-};
-
 export function StepTargetTime({ fitnessLevel, value, onChange, onNext }: Props) {
+  const { t } = useI18n();
   const [hours, setHours] = useState("");
   const [mins, setMins] = useState("");
+
+  const SUGGESTIONS: Record<string, { label: string; minutes: number }[]> = {
+    beginner: [
+      { label: t("onboarding.targetTimeJustFinish"), minutes: 0 },
+      { label: t("onboarding.targetTimeUnder2h30"), minutes: 150 },
+      { label: t("onboarding.targetTimeUnder2h15"), minutes: 135 },
+    ],
+    intermediate: [
+      { label: t("onboarding.targetTimeJustFinish"), minutes: 0 },
+      { label: t("onboarding.targetTimeUnder2h"), minutes: 120 },
+      { label: t("onboarding.targetTimeUnder1h50"), minutes: 110 },
+    ],
+    advanced: [
+      { label: t("onboarding.targetTimeUnder1h45"), minutes: 105 },
+      { label: t("onboarding.targetTimeUnder1h40"), minutes: 100 },
+      { label: t("onboarding.targetTimeUnder1h35"), minutes: 95 },
+    ],
+    expert: [
+      { label: t("onboarding.targetTimeUnder1h35"), minutes: 95 },
+      { label: t("onboarding.targetTimeUnder1h30"), minutes: 90 },
+      { label: t("onboarding.targetTimeSub1h25"), minutes: 85 },
+    ],
+  };
+
   const suggestions = SUGGESTIONS[fitnessLevel] ?? SUGGESTIONS.intermediate;
 
   const setFromSuggestion = (minutes: number) => {
@@ -60,13 +63,13 @@ export function StepTargetTime({ fitnessLevel, value, onChange, onNext }: Props)
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <p className="text-brand-400 text-sm font-semibold uppercase tracking-widest mb-2">Step 5 of 5</p>
-        <h1 className="text-3xl font-bold">Do you have a time goal?</h1>
-        <p className="text-neutral-400 mt-2">Optional — skip this if you just want to finish.</p>
+        <p className="text-brand-400 text-sm font-semibold uppercase tracking-widest mb-2">{t("onboarding.targetTimeStepLabel")}</p>
+        <h1 className="text-3xl font-bold">{t("onboarding.targetTimeTitle")}</h1>
+        <p className="text-neutral-400 mt-2">{t("onboarding.targetTimeSubtitle")}</p>
       </div>
 
       <div className="flex flex-col gap-2">
-        <p className="text-neutral-500 text-sm">Common targets</p>
+        <p className="text-neutral-500 text-sm">{t("onboarding.targetTimeCommonTargets")}</p>
         <div className="flex gap-2 flex-wrap">
           {suggestions.map((s) => (
             <button
@@ -85,7 +88,7 @@ export function StepTargetTime({ fitnessLevel, value, onChange, onNext }: Props)
       </div>
 
       <div>
-        <p className="text-neutral-500 text-sm mb-2">Or enter a custom time</p>
+        <p className="text-neutral-500 text-sm mb-2">{t("onboarding.targetTimeOrCustom")}</p>
         <div className="flex gap-3 items-center">
           <div className="flex-1">
             <Input
@@ -99,7 +102,7 @@ export function StepTargetTime({ fitnessLevel, value, onChange, onNext }: Props)
               className="h-auto bg-neutral-900 border-neutral-700 rounded-xl px-4 py-3 text-white w-full text-center text-xl focus-visible:border-brand-500"
             />
             <Label htmlFor="target-hours" className="text-neutral-500 text-xs text-center mt-1 justify-center">
-              hours
+              {t("onboarding.targetTimeHours")}
             </Label>
           </div>
           <span className="text-2xl text-neutral-500 pb-5">:</span>
@@ -115,7 +118,7 @@ export function StepTargetTime({ fitnessLevel, value, onChange, onNext }: Props)
               className="h-auto bg-neutral-900 border-neutral-700 rounded-xl px-4 py-3 text-white w-full text-center text-xl focus-visible:border-brand-500"
             />
             <Label htmlFor="target-mins" className="text-neutral-500 text-xs text-center mt-1 justify-center">
-              minutes
+              {t("onboarding.targetTimeMinutes")}
             </Label>
           </div>
         </div>
@@ -123,7 +126,7 @@ export function StepTargetTime({ fitnessLevel, value, onChange, onNext }: Props)
 
       <div className="flex flex-col gap-3">
         <Button onClick={onNext} fullWidth size="lg">
-          {value ? "Build my plan" : "Build my plan (no time goal)"}
+          {value ? t("onboarding.targetTimeBuildWithGoal") : t("onboarding.targetTimeBuildNoGoal")}
         </Button>
       </div>
     </div>

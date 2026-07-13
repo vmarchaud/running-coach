@@ -8,6 +8,7 @@ export interface ClaudeTool {
 
 export type ClaudeContentBlock =
   | { type: "text"; text: string }
+  | { type: "thinking"; text: string }
   | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> }
   | { type: "tool_result"; tool_use_id: string; content: string; is_error?: boolean };
 
@@ -142,7 +143,25 @@ export async function callClaude(
 
   const msg = choice.message;
   const content: ClaudeContentBlock[] = [];
-  if (msg.content) content.push({ type: "text", text: msg.content });
+
+  // The Nemotron model "thinks out loud" before its final answer — either via
+  // a separate reasoning_content field (the DeepSeek-R1-style convention many
+  // OpenAI-compatible reasoning-model hosts use) or an inline <think>...</think>
+  // block at the start of content. Split it into its own block either way so
+  // the UI can render it as a collapsed-by-default disclosure instead of
+  // dumping raw chain-of-thought into the reply.
+  if (typeof msg.reasoning_content === "string" && msg.reasoning_content.trim()) {
+    content.push({ type: "thinking", text: msg.reasoning_content.trim() });
+  }
+
+  let bodyText: string = msg.content ?? "";
+  const thinkMatch = /^\s*<think>([\s\S]*?)<\/think>/i.exec(bodyText);
+  if (thinkMatch) {
+    content.push({ type: "thinking", text: thinkMatch[1].trim() });
+    bodyText = bodyText.slice(thinkMatch[0].length);
+  }
+
+  if (bodyText.trim()) content.push({ type: "text", text: bodyText.trim() });
 
   for (const tc of msg.tool_calls ?? []) {
     let input: Record<string, unknown> = {};
