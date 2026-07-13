@@ -7,6 +7,8 @@ import { HistoryList } from "./components/history/HistoryList";
 import { CoachChat } from "./components/coach/CoachChat";
 import { WorkoutDetail } from "./components/workout/WorkoutDetail";
 import { BottomNav, Tab } from "./components/shared/BottomNav";
+import { Settings } from "./components/settings/Settings";
+import { useTextSize } from "./lib/useTextSize";
 import { getMe } from "./api/users";
 
 type View = "login" | "onboarding" | "app";
@@ -31,6 +33,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [selectedSession, setSelectedSession] = useState<{ id: number; isCompleted: boolean } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const { textSize, setTextSize } = useTextSize();
 
   const selectSession = (id: number, isCompleted: boolean) => setSelectedSession({ id, isCompleted });
 
@@ -118,6 +121,7 @@ export default function App() {
           />
         )}
         {tab === "coach" && <CoachChat />}
+        {tab === "settings" && <Settings textSize={textSize} onTextSizeChange={setTextSize} />}
       </div>
 
       <BottomNav active={tab} onChange={setTab} />

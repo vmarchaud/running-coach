@@ -21,6 +21,14 @@ function textOf(content: ChatMessage["content"]): string {
     .join("\n");
 }
 
+function thinkingOf(content: ChatMessage["content"]): string {
+  if (typeof content === "string") return "";
+  return content
+    .filter((b): b is Extract<typeof b, { type: "thinking" }> => b.type === "thinking")
+    .map((b) => b.text)
+    .join("\n\n");
+}
+
 export function CoachChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
@@ -78,7 +86,9 @@ export function CoachChat() {
     setConfirmClear(false);
   };
 
-  const visibleMessages = messages.filter((m) => textOf(m.content).trim().length > 0);
+  const visibleMessages = messages.filter(
+    (m) => textOf(m.content).trim().length > 0 || thinkingOf(m.content).trim().length > 0
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -143,9 +153,24 @@ export function CoachChat() {
             }`}
           >
             {m.role === "assistant" ? (
-              <div className="typeset typeset-docs max-w-[37em]">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{textOf(m.content)}</ReactMarkdown>
-              </div>
+              <>
+                {thinkingOf(m.content).trim() && (
+                  <details className="mb-2 text-xs text-neutral-500 group">
+                    <summary className="cursor-pointer select-none hover:text-neutral-300 list-none flex items-center gap-1">
+                      <span className="transition-transform group-open:rotate-90">›</span>
+                      Thinking
+                    </summary>
+                    <div className="mt-1.5 whitespace-pre-wrap text-neutral-400 border-l-2 border-neutral-700 pl-2">
+                      {thinkingOf(m.content)}
+                    </div>
+                  </details>
+                )}
+                {textOf(m.content).trim() && (
+                  <div className="typeset typeset-docs max-w-[37em]">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{textOf(m.content)}</ReactMarkdown>
+                  </div>
+                )}
+              </>
             ) : (
               textOf(m.content)
             )}

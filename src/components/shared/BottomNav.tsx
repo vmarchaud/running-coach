@@ -1,4 +1,6 @@
-type Tab = "dashboard" | "plan" | "history" | "coach";
+import { useI18n } from "../../lib/i18n/context";
+
+type Tab = "dashboard" | "plan" | "history" | "coach" | "settings";
 
 interface BottomNavProps {
   active: Tab;
@@ -6,11 +8,14 @@ interface BottomNavProps {
 }
 
 export function BottomNav({ active, onChange }: BottomNavProps) {
+  const { t } = useI18n();
+
   const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: "dashboard", label: "This Week", icon: "🏃" },
-    { id: "plan", label: "Plan", icon: "📋" },
-    { id: "history", label: "History", icon: "📈" },
-    { id: "coach", label: "Coach", icon: "💬" },
+    { id: "dashboard", label: t("nav.dashboard"), icon: "🏃" },
+    { id: "plan", label: t("nav.plan"), icon: "📋" },
+    { id: "history", label: t("nav.history"), icon: "📈" },
+    { id: "coach", label: t("nav.coach"), icon: "💬" },
+    { id: "settings", label: t("nav.settings"), icon: "⚙️" },
   ];
 
   return (
