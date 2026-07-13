@@ -4,6 +4,8 @@ import { useI18n } from "../../lib/i18n/context";
 import { TextSize } from "../../lib/useTextSize";
 import { Language } from "../../lib/i18n/dictionaries";
 import { StrengthMaxes } from "./StrengthMaxes";
+import { NolioConnect } from "./NolioConnect";
+import { NotificationOptIn } from "./NotificationOptIn";
 
 interface Props {
   textSize: TextSize;
@@ -83,6 +85,14 @@ export function Settings({ textSize, onTextSizeChange }: Props) {
 
       <div className="px-4">
         <StrengthMaxes />
+      </div>
+
+      <div className="px-4">
+        <NolioConnect />
+      </div>
+
+      <div className="px-4">
+        <NotificationOptIn />
       </div>
     </div>
   );
