@@ -41,6 +41,17 @@ function consumeTabParam(): Tab | null {
     : null;
 }
 
+// This SPA has no URL router — every screen (bottom-nav tab, workout detail
+// drill-in) was plain React state with zero browser history integration, so
+// the device/browser back button had nothing to pop at all and just left the
+// app. NavState is the one shape pushed/read from history for every
+// navigation, so back always lands somewhere sensible instead of exiting.
+interface NavState {
+  tab: Tab;
+  sessionId: number | null;
+  isCompleted: boolean;
+}
+
 export default function App() {
   const [view, setView] = useState<View | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -49,27 +60,44 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const { textSize, setTextSize } = useTextSize();
 
-  // This SPA never pushed a browser history entry for "drilling into" a
-  // workout, so the device/browser back button had nothing to pop and just
-  // left the app entirely instead of returning to the list. Push one when a
-  // session is opened, and let popstate (fired by the back button, or by our
-  // own history.back() call from the explicit Back button) be the single
-  // place that actually closes the detail view.
+  // Establish a concrete baseline entry once we enter the app, instead of
+  // leaving history.state as the ambiguous `null` the page loaded with — every
+  // pushState below builds on top of this, and popping back past it (state
+  // null again) is handled as "back to the initial tab" in the listener.
+  useEffect(() => {
+    if (view === "app") {
+      window.history.replaceState({ tab, sessionId: null, isCompleted: false } satisfies NavState, "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
+
+  const changeTab = (newTab: Tab) => {
+    if (newTab === tab) return;
+    window.history.pushState({ tab: newTab, sessionId: null, isCompleted: false } satisfies NavState, "");
+    setSelectedSession(null);
+    setTab(newTab);
+  };
+
   const selectSession = (id: number, isCompleted: boolean) => {
-    window.history.pushState({ view: "workoutDetail" }, "");
+    window.history.pushState({ tab, sessionId: id, isCompleted } satisfies NavState, "");
     setSelectedSession({ id, isCompleted });
   };
 
-  const closeSelectedSession = () => {
-    if (window.history.state?.view === "workoutDetail") {
-      window.history.back();
-    } else {
-      setSelectedSession(null);
-    }
-  };
+  // The explicit in-app Back button (and "close after logging a workout")
+  // goes through history.back() too, rather than clearing state directly —
+  // so browser back and in-app back always agree on what's currently open.
+  const closeSelectedSession = () => window.history.back();
 
   useEffect(() => {
-    const onPopState = () => setSelectedSession(null);
+    const onPopState = (e: PopStateEvent) => {
+      const state = e.state as NavState | null;
+      if (!state) {
+        setSelectedSession(null);
+        return;
+      }
+      setTab(state.tab);
+      setSelectedSession(state.sessionId != null ? { id: state.sessionId, isCompleted: state.isCompleted } : null);
+    };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
@@ -161,7 +189,7 @@ export default function App() {
         {tab === "settings" && <Settings textSize={textSize} onTextSizeChange={setTextSize} />}
       </div>
 
-      <BottomNav active={tab} onChange={setTab} />
+      <BottomNav active={tab} onChange={changeTab} />
     </div>
   );
 }
