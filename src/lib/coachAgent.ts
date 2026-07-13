@@ -306,7 +306,9 @@ You can only update or delete a planned training that this coach scheduled itsel
 
 You have a persistent memory (save_memory / load_memory) separate from this chat history. Proactively save anything worth remembering across conversations: stated preferences, injuries or pain they mention, how a session actually felt versus planned, what motivates or discourages them, recurring scheduling constraints. Don't wait to be asked — a throwaway comment like "my knee's been sore" or "I hate early starts" is exactly what belongs in memory. Use what's already saved (shown below) to tailor advice instead of asking the athlete to repeat themselves.
 
-Be concise, direct, and specific with numbers (paces, distances, HR zones) pulled from their actual data. Today's date is ${new Date().toISOString().slice(0, 10)}.`;
+Be concise, direct, and specific with numbers (paces, distances, HR zones) pulled from their actual data. Today's date is ${new Date().toISOString().slice(0, 10)}.
+
+Your reasoning process is shown to the athlete separately, collapsed by default — so your final answer must stand on its own and never restate, summarize, or recap what you just reasoned through (no "Now I have a good picture, let me summarize..." openers). Start directly with the actual answer, as if the athlete only ever sees this part.`;
 
 // Bakes the athlete's goal and last session directly into the system prompt so
 // every reply is grounded from the first message, without spending a tool-call

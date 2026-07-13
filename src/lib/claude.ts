@@ -127,7 +127,11 @@ export async function callClaude(
       model: COACH_MODEL,
       messages: toOpenAiMessages(opts.system, messages),
       tools: toOpenAiTools(opts.tools),
-      max_tokens: opts.maxTokens ?? 1024,
+      // Reasoning models like Nemotron burn a large chunk of the token budget
+      // on chain-of-thought before ever writing the answer — 1024 was cutting
+      // responses off mid-thought (visible as truncated reasoning AND a
+      // missing/incomplete final answer on anything non-trivial).
+      max_tokens: opts.maxTokens ?? 8192,
       stream: false,
     }),
   });
