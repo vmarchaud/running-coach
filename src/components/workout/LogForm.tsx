@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "../../lib/i18n/context";
 
 interface Props {
   session: Session;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function LogForm({ session, onSuccess, onCancel }: Props) {
+  const { t } = useI18n();
   const [distance, setDistance] = useState(session.distance?.toString() ?? "");
   const [durationH, setDurationH] = useState("");
   const [durationM, setDurationM] = useState("");
@@ -40,10 +42,10 @@ export function LogForm({ session, onSuccess, onCancel }: Props) {
   return (
     <Card className="p-5">
       <CardContent className="p-0 flex flex-col gap-5">
-        <h3 className="font-semibold text-lg">Log workout</h3>
+        <h3 className="font-semibold text-lg">{t("workout.logWorkoutTitle")}</h3>
 
         <div>
-          <Label htmlFor="log-distance" className="text-neutral-500 text-xs uppercase tracking-wide block mb-2">Distance (km)</Label>
+          <Label htmlFor="log-distance" className="text-neutral-500 text-xs uppercase tracking-wide block mb-2">{t("workout.distanceLabel")}</Label>
           <Input
             id="log-distance"
             type="number"
@@ -56,7 +58,7 @@ export function LogForm({ session, onSuccess, onCancel }: Props) {
         </div>
 
         <div>
-          <Label className="text-neutral-500 text-xs uppercase tracking-wide block mb-2">Duration</Label>
+          <Label className="text-neutral-500 text-xs uppercase tracking-wide block mb-2">{t("workout.durationLabel")}</Label>
           <div className="flex gap-3 items-center">
             <Input
               type="number"
@@ -67,7 +69,7 @@ export function LogForm({ session, onSuccess, onCancel }: Props) {
               placeholder="0"
               className="flex-1 text-center"
             />
-            <span className="text-neutral-500">h</span>
+            <span className="text-neutral-500">{t("workout.durationHoursUnit")}</span>
             <Input
               type="number"
               min="0"
@@ -77,12 +79,12 @@ export function LogForm({ session, onSuccess, onCancel }: Props) {
               placeholder="00"
               className="flex-1 text-center"
             />
-            <span className="text-neutral-500">min</span>
+            <span className="text-neutral-500">{t("workout.durationMinutesUnit")}</span>
           </div>
         </div>
 
         <div>
-          <Label htmlFor="log-rpe" className="text-neutral-500 text-xs uppercase tracking-wide block mb-2">RPE (1-10)</Label>
+          <Label htmlFor="log-rpe" className="text-neutral-500 text-xs uppercase tracking-wide block mb-2">{t("workout.rpeLabel")}</Label>
           <Input
             id="log-rpe"
             type="number"
@@ -94,21 +96,21 @@ export function LogForm({ session, onSuccess, onCancel }: Props) {
         </div>
 
         <div>
-          <Label htmlFor="log-notes" className="text-neutral-500 text-xs uppercase tracking-wide block mb-2">Notes (optional)</Label>
+          <Label htmlFor="log-notes" className="text-neutral-500 text-xs uppercase tracking-wide block mb-2">{t("workout.notesLabel")}</Label>
           <Textarea
             id="log-notes"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="How did it go?"
+            placeholder={t("workout.notesPlaceholder")}
             rows={2}
             className="resize-none"
           />
         </div>
 
         <div className="flex gap-3">
-          <Button variant="secondary" onClick={onCancel} fullWidth>Cancel</Button>
+          <Button variant="secondary" onClick={onCancel} fullWidth>{t("common.cancel")}</Button>
           <Button onClick={submit} disabled={saving} fullWidth>
-            {saving ? "Saving..." : "Save"}
+            {saving ? t("workout.saving") : t("common.save")}
           </Button>
         </div>
       </CardContent>

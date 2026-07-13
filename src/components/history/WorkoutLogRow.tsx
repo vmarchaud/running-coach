@@ -2,6 +2,7 @@ import type { Session } from "../../api/sessions";
 import { SportBadge } from "../shared/Badge";
 import { formatDuration } from "../../lib/dateUtils";
 import { Card, CardContent } from "@/components/ui/card";
+import { useI18n } from "../../lib/i18n/context";
 
 interface Props {
   session: Session;
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function WorkoutLogRow({ session, onSelect }: Props) {
+  const { t } = useI18n();
   const dateLabel = new Date(session.dateStart + "T00:00:00").toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
@@ -34,7 +36,7 @@ export function WorkoutLogRow({ session, onSelect }: Props) {
               <span className="text-white font-medium">{session.distance} km</span>
             )}
             {session.duration != null && <span>{formatDuration(session.duration / 60)}</span>}
-            {session.rpe != null && <span>RPE {session.rpe}/10</span>}
+            {session.rpe != null && <span>{t("history.rpe").replace("{value}", String(session.rpe))}</span>}
           </div>
         </div>
 

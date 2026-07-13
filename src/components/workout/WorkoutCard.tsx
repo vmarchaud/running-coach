@@ -1,6 +1,7 @@
 import type { Session } from "../../api/sessions";
 import { SportBadge } from "../shared/Badge";
 import { formatDuration } from "../../lib/dateUtils";
+import { useI18n } from "../../lib/i18n/context";
 
 interface Props {
   session: Session;
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function WorkoutCard({ session, dayLabel, onClick }: Props) {
+  const { t } = useI18n();
   const today = new Date().toISOString().slice(0, 10);
   const isToday = session.dateStart === today;
   const isPast = session.dateStart < today;
@@ -41,14 +43,14 @@ export function WorkoutCard({ session, dayLabel, onClick }: Props) {
             <SportBadge sport={session.sport} />
             <span className="text-sm text-neutral-300 truncate">{session.name}</span>
             {isToday && !session.isCompleted && (
-              <span className="text-xs text-brand-400 font-medium">Today</span>
+              <span className="text-xs text-brand-400 font-medium">{t("workout.todayBadge")}</span>
             )}
           </div>
 
           <div className="flex items-center gap-3 mt-1.5 text-sm text-neutral-400">
             {session.distance != null && <span>{session.distance} km</span>}
             {session.duration != null && <span>{formatDuration(session.duration / 60)}</span>}
-            {session.rpe != null && <span>RPE {session.rpe}/10</span>}
+            {session.rpe != null && <span>{t("workout.rpeShort")} {session.rpe}/10</span>}
           </div>
         </div>
       </div>

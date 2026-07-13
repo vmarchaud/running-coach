@@ -3,6 +3,7 @@ import { getHistorySessions, Session } from "../../api/sessions";
 import { WorkoutLogRow } from "./WorkoutLogRow";
 import { Spinner } from "../shared/Spinner";
 import { Button } from "../shared/Button";
+import { useI18n } from "../../lib/i18n/context";
 
 interface Props {
   onWorkoutSelect: (id: number, isCompleted: boolean) => void;
@@ -12,6 +13,7 @@ interface Props {
 const PAGE_SIZE = 20;
 
 export function HistoryList({ onWorkoutSelect, refreshKey }: Props) {
+  const { t } = useI18n();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -55,15 +57,15 @@ export function HistoryList({ onWorkoutSelect, refreshKey }: Props) {
   return (
     <div className="flex flex-col pb-4">
       <div className="px-4 pt-6 pb-4">
-        <h1 className="text-2xl font-bold">History</h1>
-        <p className="text-neutral-400 text-sm mt-0.5">Completed trainings from Nolio</p>
+        <h1 className="text-2xl font-bold">{t("history.title")}</h1>
+        <p className="text-neutral-400 text-sm mt-0.5">{t("history.subtitle")}</p>
       </div>
 
       {sessions.length === 0 ? (
         <div className="text-center py-16 text-neutral-500 px-4">
           <div className="text-4xl mb-3">🏁</div>
-          <p>No completed workouts yet.</p>
-          <p className="text-sm mt-1">Go crush your first session!</p>
+          <p>{t("history.emptyTitle")}</p>
+          <p className="text-sm mt-1">{t("history.emptySubtitle")}</p>
         </div>
       ) : (
         <div className="flex flex-col gap-1 px-4">
@@ -76,7 +78,7 @@ export function HistoryList({ onWorkoutSelect, refreshKey }: Props) {
       {hasMore && sessions.length > 0 && (
         <div className="px-4 mt-4">
           <Button variant="secondary" fullWidth onClick={loadMore} disabled={loadingMore}>
-            {loadingMore ? "Loading..." : "Load more"}
+            {loadingMore ? t("history.loading") : t("history.loadMore")}
           </Button>
         </div>
       )}

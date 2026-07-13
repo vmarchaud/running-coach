@@ -1,6 +1,7 @@
 import { Button } from "../shared/Button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "../../lib/i18n/context";
 
 interface Props {
   value: string;
@@ -8,25 +9,26 @@ interface Props {
   onNext: () => void;
 }
 
-const PRESETS = [
-  { label: "Oct 2026", value: "2026-10-18" },
-  { label: "Apr 2026", value: "2026-04-19" },
-  { label: "Jun 2026", value: "2026-06-21" },
-];
-
 export function StepRaceDate({ value, onChange, onNext }: Props) {
+  const { t } = useI18n();
   const today = new Date().toISOString().slice(0, 10);
+
+  const PRESETS = [
+    { label: t("onboarding.raceDatePresetOct"), value: "2026-10-18" },
+    { label: t("onboarding.raceDatePresetApr"), value: "2026-04-19" },
+    { label: t("onboarding.raceDatePresetJun"), value: "2026-06-21" },
+  ];
 
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <p className="text-brand-400 text-sm font-semibold uppercase tracking-widest mb-2">Step 3 of 5</p>
-        <h1 className="text-3xl font-bold">When's your race?</h1>
-        <p className="text-neutral-400 mt-2">Pick your target race date — the plan works back from here.</p>
+        <p className="text-brand-400 text-sm font-semibold uppercase tracking-widest mb-2">{t("onboarding.raceDateStepLabel")}</p>
+        <h1 className="text-3xl font-bold">{t("onboarding.raceDateTitle")}</h1>
+        <p className="text-neutral-400 mt-2">{t("onboarding.raceDateSubtitle")}</p>
       </div>
 
       <div>
-        <p className="text-neutral-500 text-sm mb-3">Quick pick</p>
+        <p className="text-neutral-500 text-sm mb-3">{t("onboarding.raceDateQuickPick")}</p>
         <div className="flex gap-2 flex-wrap">
           {PRESETS.map((p) => (
             <button
@@ -46,7 +48,7 @@ export function StepRaceDate({ value, onChange, onNext }: Props) {
 
       <div>
         <Label htmlFor="race-date" className="text-neutral-500 text-sm mb-2">
-          Or pick a specific date
+          {t("onboarding.raceDateOrPickSpecific")}
         </Label>
         <Input
           id="race-date"
@@ -59,7 +61,7 @@ export function StepRaceDate({ value, onChange, onNext }: Props) {
       </div>
 
       <Button onClick={onNext} disabled={!value} fullWidth size="lg">
-        Continue
+        {t("onboarding.raceDateContinue")}
       </Button>
     </div>
   );

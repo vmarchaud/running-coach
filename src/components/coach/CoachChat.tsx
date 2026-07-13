@@ -12,6 +12,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useI18n } from "../../lib/i18n/context";
 
 function textOf(content: ChatMessage["content"]): string {
   if (typeof content === "string") return content;
@@ -30,6 +31,7 @@ function thinkingOf(content: ChatMessage["content"]): string {
 }
 
 export function CoachChat() {
+  const { t } = useI18n();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [input, setInput] = useState("");
@@ -42,7 +44,7 @@ export function CoachChat() {
   useEffect(() => {
     getCoachMessages()
       .then(({ messages }) => setMessages(messages))
-      .catch(() => setError("Couldn't load your conversation history."))
+      .catch(() => setError(t("coach.historyLoadError")))
       .finally(() => setLoadingHistory(false));
   }, []);
 
@@ -73,7 +75,7 @@ export function CoachChat() {
         }
       });
     } catch (e: any) {
-      setError(e.message ?? "Something went wrong talking to your coach.");
+      setError(e.message ?? t("coach.genericError"));
     } finally {
       setSending(false);
       setActiveTools([]);
@@ -94,9 +96,9 @@ export function CoachChat() {
     <div className="flex flex-col h-full">
       <div className="px-4 pt-6 pb-4 flex items-start justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl uppercase leading-none">Coach</h1>
+          <h1 className="font-display text-3xl uppercase leading-none">{t("coach.title")}</h1>
           <p className="text-neutral-400 text-sm mt-0.5">
-            Ask about your training, recovery, or have it schedule your next session.
+            {t("coach.subtitle")}
           </p>
         </div>
 
@@ -105,7 +107,7 @@ export function CoachChat() {
             onClick={() => setConfirmClear(true)}
             className="text-xs text-neutral-500 hover:text-neutral-300 px-2 py-1 flex-shrink-0"
           >
-            Clear chat
+            {t("coach.clearChat")}
           </button>
         )}
       </div>
@@ -113,17 +115,17 @@ export function CoachChat() {
       <Dialog open={confirmClear} onOpenChange={setConfirmClear}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Clear conversation?</DialogTitle>
+            <DialogTitle>{t("coach.clearDialogTitle")}</DialogTitle>
             <DialogDescription>
-              This will permanently delete your chat history with your coach.
+              {t("coach.clearDialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setConfirmClear(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button variant="danger" onClick={clearChat}>
-              Confirm
+              {t("common.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -139,7 +141,7 @@ export function CoachChat() {
         {!loadingHistory && visibleMessages.length === 0 && (
           <div className="text-center text-neutral-500 py-12">
             <div className="text-4xl mb-3">🏃‍♂️</div>
-            <p>Ask me anything — "how was my week?", "am I recovered enough for a long run?", "schedule an easy run for tomorrow".</p>
+            <p>{t("coach.emptyState")}</p>
           </div>
         )}
 
@@ -158,7 +160,7 @@ export function CoachChat() {
                   <details className="mb-2 text-xs text-neutral-500 group">
                     <summary className="cursor-pointer select-none hover:text-neutral-300 list-none flex items-center gap-1">
                       <span className="transition-transform group-open:rotate-90">›</span>
-                      Thinking
+                      {t("coach.thinking")}
                     </summary>
                     <div className="mt-1.5 whitespace-pre-wrap text-neutral-400 border-l-2 border-neutral-700 pl-2">
                       {thinkingOf(m.content)}
@@ -202,7 +204,7 @@ export function CoachChat() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
-          placeholder="Message your coach..."
+          placeholder={t("coach.inputPlaceholder")}
           className="flex-1 bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2.5 text-white placeholder-neutral-600 focus:outline-none focus:border-brand-500"
         />
         <button
@@ -210,7 +212,7 @@ export function CoachChat() {
           disabled={sending || !input.trim()}
           className="bg-brand-500 text-white rounded-xl px-4 py-2.5 font-semibold disabled:opacity-50 active:scale-95 transition-all"
         >
-          Send
+          {t("coach.send")}
         </button>
       </div>
     </div>

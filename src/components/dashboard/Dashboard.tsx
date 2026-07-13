@@ -10,19 +10,22 @@ import { NotificationOptIn } from "./NotificationOptIn";
 import { Objectives } from "./Objectives";
 import { Spinner } from "../shared/Spinner";
 import { addDays, diffDays, isoDate, weekMondayFromDate } from "../../lib/dateUtils";
+import { useI18n } from "../../lib/i18n/context";
 
 interface Props {
   onWorkoutSelect: (id: number, isCompleted: boolean) => void;
   refreshKey?: number;
 }
 
-function weekLabel(offset: number): string {
-  if (offset === 0) return "This week";
-  if (offset === -1) return "Last week";
-  return `${Math.abs(offset)} weeks ago`;
-}
-
 export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
+  const { t } = useI18n();
+
+  function weekLabel(offset: number): string {
+    if (offset === 0) return t("dashboard.weekLabelThisWeek");
+    if (offset === -1) return t("dashboard.weekLabelLastWeek");
+    return `${Math.abs(offset)} ${t("dashboard.weekLabelWeeksAgo")}`;
+  }
+
   const [user, setUser] = useState<{ name: string; raceDate: string } | null>(null);
   const [objectives, setObjectives] = useState<{ main: Objective | null; secondary: Objective[] } | null>(null);
   const [week, setWeek] = useState<WeekSessions | null>(null);
@@ -55,7 +58,7 @@ export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
   if (error || !week) {
     return (
       <div className="text-center py-20 text-neutral-400">
-        <p>Something went wrong. Pull to refresh.</p>
+        <p>{t("common.somethingWrong")}</p>
       </div>
     );
   }
@@ -72,10 +75,10 @@ export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
       <div className="px-4 pt-6">
         <div className="flex items-center gap-2 mb-1">
           <span className="pulse-dot" />
-          <span className="label-eyebrow text-neutral-500">Live from Nolio</span>
+          <span className="label-eyebrow text-neutral-500">{t("dashboard.liveFromNolio")}</span>
         </div>
         <h1 className="font-display text-4xl uppercase leading-none">
-          Hey, <span className="text-brand-400">{user.name}</span>
+          {t("dashboard.heyGreeting")}, <span className="text-brand-400">{user.name}</span>
         </h1>
       </div>
 
@@ -103,7 +106,7 @@ export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
             <button
               onClick={() => setWeekOffset((o) => o - 1)}
               className="text-neutral-500 hover:text-white px-2 py-1 rounded-lg hover:bg-neutral-800 transition-colors"
-              aria-label="Previous week"
+              aria-label={t("dashboard.prevWeek")}
             >
               ‹
             </button>
@@ -112,7 +115,7 @@ export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
               onClick={() => setWeekOffset((o) => Math.min(0, o + 1))}
               disabled={weekOffset === 0}
               className="text-neutral-500 hover:text-white px-2 py-1 rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
-              aria-label="Next week"
+              aria-label={t("dashboard.nextWeek")}
             >
               ›
             </button>

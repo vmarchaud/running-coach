@@ -6,6 +6,7 @@ import { StepTargetTime } from "./StepTargetTime";
 import { StepGenerating } from "./StepGenerating";
 import { createUser } from "../../api/users";
 import { getNolioStatus } from "../../api/nolio";
+import { useI18n } from "../../lib/i18n/context";
 
 interface Props {
   userId: string;
@@ -24,6 +25,7 @@ const STEPS = ["fitness", "raceDate", "days", "targetTime", "generating"] as con
 type Step = (typeof STEPS)[number];
 
 export function OnboardingFlow({ userId, onComplete }: Props) {
+  const { t } = useI18n();
   const [step, setStep] = useState<Step>("fitness");
   const [data, setData] = useState<OnboardingState>({
     name: "",
@@ -54,7 +56,7 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
     setStep("generating");
     await createUser({
       id: userId,
-      name: data.name || "Runner",
+      name: data.name || t("onboarding.generatingDefaultName"),
       fitnessLevel: data.fitnessLevel,
       daysPerWeek: data.daysPerWeek as any,
       raceDate: data.raceDate,
@@ -106,7 +108,7 @@ export function OnboardingFlow({ userId, onComplete }: Props) {
             onNext={submit}
           />
         )}
-        {step === "generating" && <StepGenerating name={data.name || "Runner"} />}
+        {step === "generating" && <StepGenerating name={data.name || t("onboarding.generatingDefaultName")} />}
       </div>
     </div>
   );

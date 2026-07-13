@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getVapidPublicKey, subscribeToPush, unsubscribeFromPush } from "../../api/notifications";
 import { Card, CardContent } from "@/components/ui/card";
+import { useI18n } from "../../lib/i18n/context";
 
 function urlBase64ToUint8Array(base64Url: string): ArrayBuffer {
   const padding = "=".repeat((4 - (base64Url.length % 4)) % 4);
@@ -13,6 +14,7 @@ function urlBase64ToUint8Array(base64Url: string): ArrayBuffer {
 type Status = "unsupported" | "loading" | "off" | "on" | "denied";
 
 export function NotificationOptIn() {
+  const { t } = useI18n();
   const [status, setStatus] = useState<Status>("loading");
   const [busy, setBusy] = useState(false);
 
@@ -77,9 +79,9 @@ export function NotificationOptIn() {
     return (
       <Card>
         <CardContent>
-          <p className="text-sm font-semibold text-neutral-300">Notifications blocked</p>
+          <p className="text-sm font-semibold text-neutral-300">{t("dashboard.notificationsBlockedTitle")}</p>
           <p className="text-neutral-500 text-xs mt-1">
-            Enable notifications for this site in your browser settings if you'd like check-ins from your coach.
+            {t("dashboard.notificationsBlockedBody")}
           </p>
         </CardContent>
       </Card>
@@ -91,9 +93,9 @@ export function NotificationOptIn() {
       <Card>
         <CardContent className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-brand-400">🔔 Coach check-ins enabled</p>
+            <p className="text-sm font-semibold text-brand-400">{t("dashboard.checkInsEnabledTitle")}</p>
             <p className="text-neutral-500 text-xs mt-0.5">
-              You'll get a notification every couple of days with an update and plan.
+              {t("dashboard.checkInsEnabledBody")}
             </p>
           </div>
           <button
@@ -101,7 +103,7 @@ export function NotificationOptIn() {
             disabled={busy}
             className="text-neutral-500 hover:text-red-400 text-xs flex-shrink-0 disabled:opacity-50"
           >
-            Turn off
+            {t("dashboard.turnOff")}
           </button>
         </CardContent>
       </Card>
@@ -114,9 +116,9 @@ export function NotificationOptIn() {
         <div className="flex items-center gap-3 mb-3">
           <span className="text-2xl">🔔</span>
           <div>
-            <p className="text-sm font-semibold">Get coach check-ins</p>
+            <p className="text-sm font-semibold">{t("dashboard.getCheckInsTitle")}</p>
             <p className="text-neutral-500 text-xs">
-              Every couple of days, your coach reviews your training and plans ahead — with a notification.
+              {t("dashboard.getCheckInsBody")}
             </p>
           </div>
         </div>
@@ -125,7 +127,7 @@ export function NotificationOptIn() {
           disabled={busy}
           className="w-full text-center bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl py-2 text-sm font-semibold disabled:opacity-50 transition-colors"
         >
-          {busy ? "Enabling..." : "Enable notifications"}
+          {busy ? t("dashboard.enabling") : t("dashboard.enableNotifications")}
         </button>
       </CardContent>
     </Card>
