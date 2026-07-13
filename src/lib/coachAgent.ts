@@ -370,6 +370,8 @@ Use the tools to ground every answer in real data — pull recent trainings, HRV
 
 When the athlete asks you to plan, schedule, change, or remove training (a single session or a multi-day/multi-week plan), do NOT call schedule_planned_training, update_planned_training, delete_planned_training, or log_completed_training yet. First write out the full proposed plan or change in plain text (dates, sessions, distances, paces, RPE — or which session(s) you're about to remove/change) and ask the athlete to confirm or adjust it. Only call the write tools once they've explicitly confirmed (e.g. "yes", "looks good", "go ahead") or asked you to change something and then re-confirmed. The one exception: if the athlete explicitly says to just do it without review (e.g. "just add it", "no need to confirm"), you can write directly.
 
+Once confirmed, write the whole plan as efficiently as possible: call every schedule_planned_training/update_planned_training/delete_planned_training for that plan together in a single response (multiple tool calls at once) rather than one call per response and waiting for each result before issuing the next — a 2-week plan is 10+ sessions and doing them one at a time burns through your turn budget before you can confirm it's done.
+
 You can only update or delete a planned training that this coach scheduled itself through this app — sessions synced from a watch or scheduled outside this app can't be looked up for editing. If update_planned_training or delete_planned_training fails because the session can't be found, tell the athlete plainly rather than retrying blindly. Before telling the athlete a time range has no sessions (e.g. "nothing planned in the next 2 weeks"), double-check the date range you queried actually covers what they asked — recompute it from today's date below rather than assuming.
 
 When building a weekly or multi-week plan, always consider whether a rehab/mobility/stretching session or an easy recovery day belongs in it — especially if the athlete has mentioned an injury, niggle, or recovering body part (check memory below), or if their recent training load has been high. Don't only plan hard running/strength/Hyrox sessions.
@@ -451,7 +453,14 @@ What you've learned about this athlete so far (most recent 10 — call load_memo
 ${memoryLines}`;
 }
 
-const MAX_TOOL_ITERATIONS = 10;
+// A real transcript showed the model scheduling a 2-week (14-session) plan
+// one tool call per turn instead of batching several into one response, which
+// burned through the old cap of 10 before it could produce a closing summary
+// — every session still got created, the athlete just never saw confirmation.
+// Raised with headroom for that one-call-per-turn pattern; the batching
+// instruction in the system prompt (below) is the real fix, this is the
+// backstop.
+const MAX_TOOL_ITERATIONS = 25;
 
 // Human-friendly label for a tool call, shown live in the chat UI while the
 // agent is working in the background (e.g. "Checking recent trainings...").
@@ -491,6 +500,18 @@ export async function runCoachAgent(
   // never end up in what's persisted/rendered as chat history (the athlete
   // never sent it), so it's spliced back out right after that request.
   let pendingNudgeIndex: number | null = null;
+
+  // Tracked purely so the iteration-cap fallback below can tell the athlete
+  // what actually happened instead of a generic apology — every one of these
+  // writes already succeeded against Nolio even if the model never got to
+  // confirm it in words.
+  const writeSummary: string[] = [];
+  const WRITE_ACTION_VERBS: Record<string, string> = {
+    schedule_planned_training: "Scheduled",
+    update_planned_training: "Updated",
+    delete_planned_training: "Removed",
+    log_completed_training: "Logged",
+  };
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const response = await callClaude(nvidiaApiKey, messages, {
@@ -541,6 +562,14 @@ export async function runCoachAgent(
         try {
           const result = await executeTool(tu.name, tu.input, db, userId, nolioClientSecret);
           await onEvent?.({ type: "tool_end", id: tu.id, name: tu.name, ok: true });
+
+          const verb = WRITE_ACTION_VERBS[tu.name];
+          if (verb) {
+            const label = tu.input?.name ? `"${tu.input.name}"` : "a session";
+            const date = tu.input?.date_start ?? tu.input?.current_date_start;
+            writeSummary.push(`${verb} ${label}${date ? ` on ${date}` : ""}`);
+          }
+
           return { type: "tool_result" as const, tool_use_id: tu.id, content: JSON.stringify(result) };
         } catch (e: any) {
           await onEvent?.({ type: "tool_end", id: tu.id, name: tu.name, ok: false });
@@ -557,11 +586,16 @@ export async function runCoachAgent(
     messages.push({ role: "user", content: toolResults });
   }
 
-  // Hit the iteration cap without a final text reply. Push it as an assistant
-  // message too — not just returning it as `reply` — otherwise the frontend
-  // (which renders from `messages`, not `reply`) has nothing with a text block
-  // to show, and the conversation appears to have gotten no response at all.
-  const fallbackReply = "I ran into trouble gathering everything I needed — try asking again, maybe with a narrower question.";
+  // Hit the iteration cap without a final text reply. The writes already
+  // succeeded against Nolio regardless — say so plainly instead of a generic
+  // apology that leaves the athlete wondering whether anything actually
+  // happened. Push it as an assistant message too, not just returning it as
+  // `reply` — otherwise the frontend (which renders from `messages`, not
+  // `reply`) has nothing with a text block to show.
+  const fallbackReply =
+    writeSummary.length > 0
+      ? `I got through part of this before running out of room to confirm it in words, but everything below is already saved:\n\n${writeSummary.map((s) => `- ${s}`).join("\n")}\n\nAsk me to continue if there's more to do.`
+      : "I ran into trouble gathering everything I needed — try asking again, maybe with a narrower question.";
   messages.push({ role: "assistant", content: fallbackReply });
   return { reply: fallbackReply, messages };
 }
