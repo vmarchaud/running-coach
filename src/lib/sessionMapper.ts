@@ -38,6 +38,18 @@ function sumStructuredDistanceMeters(nodes: any[] | undefined): number {
   return total;
 }
 
+// Last-resort fallback for sessions created before top-level distance was
+// consistently filled (or where the coach only wrote a text description with
+// no structured_workout at all): pull the first "<number> km" mentioned in
+// the description, e.g. "10 km easy (RPE 3-4, HR < 145) + 6x20\" strides".
+// Deliberately just the first match, not a sum — a description can mention
+// several distances (splits, strides) and the leading one is reliably the
+// session's total in how the coach writes these.
+function estimateDistanceFromDescription(description: string | undefined): number | null {
+  const match = /(\d+(?:\.\d+)?)\s*km\b/i.exec(description ?? "");
+  return match ? parseFloat(match[1]) : null;
+}
+
 // Nolio's raw training objects (from get/training/ and get/planned/training/) share
 // the same core fields; we normalize both into one shape and tag which list they
 // came from.
@@ -54,8 +66,11 @@ export function mapNolioTraining(t: any, isCompleted: boolean): Session {
     duration: t.duration ?? null,
     // `||`, not `??`, is deliberate: Nolio returns a real 0 (not null/undefined)
     // for sessions with no recorded distance, so a nullish check alone would
-    // never fall through to the structured-workout estimate.
-    distance: t.distance || (structuredDistanceKm > 0 ? Math.round(structuredDistanceKm * 100) / 100 : null),
+    // never fall through to the fallbacks below.
+    distance:
+      t.distance ||
+      (structuredDistanceKm > 0 ? Math.round(structuredDistanceKm * 100) / 100 : null) ||
+      estimateDistanceFromDescription(t.description),
     elevationGain: t.elevation_gain ?? null,
     rpe: t.rpe ?? null,
     description: t.description || null,
