@@ -48,6 +48,55 @@ async function findPlannedTrainingRef(
   return row ? { idPartner: row.idPartner } : null;
 }
 
+// Nolio's structured_workout format (see NolioApp/NolioAPI-Documentation
+// wiki, "Structured Workout") is what actually reaches the athlete's watch as
+// step-by-step guidance — a plain `description` string is just a note the
+// athlete reads in the app, it never becomes on-watch prompts/beeps. This
+// guidance is embedded directly in the tool descriptions (rather than
+// expressed as a strict recursive JSON Schema, which function-calling APIs
+// don't support well) so the model can build correct nested JSON from a
+// worked example per sport.
+const STRUCTURED_WORKOUT_GUIDE = `IMPORTANT — always build a structured_workout for interval/tempo running, cycling, and Hyrox/strength sessions (not just a rest day or a plain easy run) so it reaches the athlete's watch as real step-by-step guidance, not just a description they have to read in the app themselves.`;
+
+const STRUCTURED_WORKOUT_SCHEMA_HINT = `Nolio's structured workout format — an array of nodes. Push real structured steps for anything with intervals/reps/sets (running intervals, tempo blocks, Hyrox, strength) so the athlete's watch actually beeps/prompts through it; a plain rest day or fully steady easy run can skip this and just use duration/distance/description.
+
+Node types (each array item is one of these):
+
+1) step (an atomic block) — the leaf unit for endurance sports:
+   { "type": "step", "step_duration_type": "duration" | "distance", "step_duration_value": <seconds or meters, integer>, "intensity_type": "warmup" | "active" | "rest" | "cooldown" | "ramp_up" | "ramp_down", "target_type": "pace" | "pace_min100" | "speed" | "power" | "heartrate" | "no_target", "target_value_min": <number, optional>, "target_value_max": <number, required if target_type isn't "no_target">, "open_duration": <bool, optional — true means "until the athlete manually advances">, "comment": "<free text, optional, \\n for line breaks>" }
+   Units: pace/pace_min100 in m/s (pace = run/bike pace shown as min/km, pace_min100 = swim pace shown as min/100m), speed in km/h, power in W, heartrate in bpm. If target_value_min is also set, the target becomes a range [min, max]; otherwise it's just target_value_max.
+
+2) repetition — repeats a block of steps N times (e.g. 6x400m intervals):
+   { "type": "repetition", "value": <number of reps>, "steps": [ <step or other nodes> ] }
+
+3) exercise — for strength/Hyrox: one named movement with one or more sets:
+   { "type": "exercise", "name": "<movement name>", "instructions": "<optional cue>", "sets": [ { "type": "rep" | "distance" | "duration", "repetitions": <number, for type "rep">, "distance": <meters, for type "distance">, "duration": <seconds, for type "duration">, "rest": <seconds after this set, optional>, "targets": [ { "target_type": "no_target" } ] } ] }
+
+4) superset — groups several exercises done back-to-back with no rest between them (a Hyrox station block, a giant set):
+   { "type": "superset", "exercises": [ <exercise nodes> ] }
+
+Worked example — Running, 5x1km @ threshold pace with warmup/cooldown:
+[
+  { "type": "step", "step_duration_type": "duration", "step_duration_value": 600, "intensity_type": "warmup", "target_type": "heartrate", "target_value_min": 120, "target_value_max": 145 },
+  { "type": "repetition", "value": 5, "steps": [
+    { "type": "step", "step_duration_type": "distance", "step_duration_value": 1000, "intensity_type": "active", "target_type": "pace", "target_value_min": 4.55, "target_value_max": 4.7, "comment": "Threshold pace" },
+    { "type": "step", "step_duration_type": "duration", "step_duration_value": 90, "intensity_type": "rest", "target_type": "no_target" }
+  ] },
+  { "type": "step", "step_duration_type": "duration", "step_duration_value": 600, "intensity_type": "cooldown", "target_type": "no_target", "open_duration": true }
+]
+(pace values are in m/s — convert from a min/km pace, e.g. 4:00/km ≈ 4.17 m/s, 3:30/km ≈ 4.76 m/s)
+
+Worked example — Hyrox station block (run + 2 exercises as a superset, repeated):
+[
+  { "type": "repetition", "value": 3, "steps": [
+    { "type": "step", "step_duration_type": "distance", "step_duration_value": 1000, "intensity_type": "active", "target_type": "no_target", "comment": "Station run" },
+    { "type": "superset", "exercises": [
+      { "type": "exercise", "name": "Sled Push", "sets": [ { "type": "distance", "distance": 25, "rest": 60, "targets": [ { "target_type": "no_target" } ] } ] },
+      { "type": "exercise", "name": "Wall Balls", "sets": [ { "type": "rep", "repetitions": 20, "rest": 90, "targets": [ { "target_type": "no_target" } ] } ] }
+    ] }
+  ] }
+]`;
+
 const TOOLS: ClaudeTool[] = [
   {
     name: "get_recent_trainings",
@@ -147,7 +196,9 @@ const TOOLS: ClaudeTool[] = [
   },
   {
     name: "schedule_planned_training",
-    description: "Schedule a future training on the athlete's Nolio calendar — any sport, not just running (e.g. strength work, cross-training, a rest-day mobility session). Only Running=2, Trail=52, and Cycling=9 are confirmed sport_ids off the top of your knowledge — for anything else (like Strength Training), call list_known_sports first; if it's not there either, ask the athlete.",
+    description: `Schedule a future training on the athlete's Nolio calendar — any sport, not just running (e.g. strength work, cross-training, a rest-day mobility session). Only Running=2, Trail=52, and Cycling=9 are confirmed sport_ids off the top of your knowledge — for anything else (like Strength Training), call list_known_sports first; if it's not there either, ask the athlete.
+
+${STRUCTURED_WORKOUT_GUIDE}`,
     input_schema: {
       type: "object",
       properties: {
@@ -159,13 +210,20 @@ const TOOLS: ClaudeTool[] = [
         elevation_gain: { type: "integer", description: "Meters" },
         description: { type: "string" },
         rpe: { type: "integer" },
+        structured_workout: {
+          type: "array",
+          description: STRUCTURED_WORKOUT_SCHEMA_HINT,
+          items: { type: "object" },
+        },
       },
       required: ["name", "sport_id", "date_start"],
     },
   },
   {
     name: "update_planned_training",
-    description: "Change a future training already scheduled on the athlete's Nolio calendar. Only works for sessions this coach scheduled itself (not sessions synced from a watch, or ones scheduled outside this app) — if the athlete asks to change one that fails, tell them you can only edit sessions you scheduled yourself. Provide current_date_start and current_sport_id to locate it (from get_planned_trainings); add current_name too if more than one session shares that date and sport. Then provide the full new values — Nolio requires name/sport_id/date_start even if unchanged.",
+    description: `Change a future training already scheduled on the athlete's Nolio calendar. Only works for sessions this coach scheduled itself (not sessions synced from a watch, or ones scheduled outside this app) — if the athlete asks to change one that fails, tell them you can only edit sessions you scheduled yourself. Provide current_date_start and current_sport_id to locate it (from get_planned_trainings); add current_name too if more than one session shares that date and sport. Then provide the full new values — Nolio requires name/sport_id/date_start even if unchanged.
+
+${STRUCTURED_WORKOUT_GUIDE}`,
     input_schema: {
       type: "object",
       properties: {
@@ -180,6 +238,11 @@ const TOOLS: ClaudeTool[] = [
         elevation_gain: { type: "integer", description: "Meters" },
         description: { type: "string" },
         rpe: { type: "integer" },
+        structured_workout: {
+          type: "array",
+          description: STRUCTURED_WORKOUT_SCHEMA_HINT,
+          items: { type: "object" },
+        },
       },
       required: ["current_date_start", "current_sport_id", "name", "sport_id", "date_start"],
     },
@@ -296,19 +359,29 @@ async function executeTool(
   });
 }
 
-const BASE_SYSTEM_PROMPT = `You are an expert running coach embedded in the athlete's training app. You have direct read/write access to their Nolio account, which aggregates data synced from their Coros watch and Whoop band (trainings, HRV, sleep, resting heart rate, weight, personal records).
+// A function, not a module-level constant with new Date() baked in — Cloudflare
+// Workers restricts wall-clock access outside request handling, so a date
+// computed at module load (cold start) freezes at an arbitrary/epoch value for
+// the isolate's whole lifetime. This must be called fresh per request instead.
+function buildBaseSystemPrompt(): string {
+  return `You are an expert running coach embedded in the athlete's training app. You have direct read/write access to their Nolio account, which aggregates data synced from their Coros watch and Whoop band (trainings, HRV, sleep, resting heart rate, weight, personal records).
 
-Use the tools to ground every answer in real data — pull recent trainings, HRV, and health metrics before giving advice on training load, recovery, or race readiness.
+Use the tools to ground every answer in real data — pull recent trainings, HRV, and health metrics before giving advice on training load, recovery, or race readiness. Never state a specific pace, heart rate, zone, or other number unless it comes directly from a tool result you fetched this turn (or the athlete context below) — if you don't have the data, fetch it or say you don't have it, don't estimate or guess a plausible-sounding number.
 
 When the athlete asks you to plan, schedule, change, or remove training (a single session or a multi-day/multi-week plan), do NOT call schedule_planned_training, update_planned_training, delete_planned_training, or log_completed_training yet. First write out the full proposed plan or change in plain text (dates, sessions, distances, paces, RPE — or which session(s) you're about to remove/change) and ask the athlete to confirm or adjust it. Only call the write tools once they've explicitly confirmed (e.g. "yes", "looks good", "go ahead") or asked you to change something and then re-confirmed. The one exception: if the athlete explicitly says to just do it without review (e.g. "just add it", "no need to confirm"), you can write directly.
 
-You can only update or delete a planned training that this coach scheduled itself through this app — sessions synced from a watch or scheduled outside this app can't be looked up for editing. If update_planned_training or delete_planned_training fails because the session can't be found, tell the athlete plainly rather than retrying blindly.
+You can only update or delete a planned training that this coach scheduled itself through this app — sessions synced from a watch or scheduled outside this app can't be looked up for editing. If update_planned_training or delete_planned_training fails because the session can't be found, tell the athlete plainly rather than retrying blindly. Before telling the athlete a time range has no sessions (e.g. "nothing planned in the next 2 weeks"), double-check the date range you queried actually covers what they asked — recompute it from today's date below rather than assuming.
+
+When building a weekly or multi-week plan, always consider whether a rehab/mobility/stretching session or an easy recovery day belongs in it — especially if the athlete has mentioned an injury, niggle, or recovering body part (check memory below), or if their recent training load has been high. Don't only plan hard running/strength/Hyrox sessions.
+
+When scheduling or updating any session with intervals, tempo blocks, or a Hyrox/strength structure, build a structured_workout (see that field's description on the tool) instead of only writing it in the description text — that's what actually reaches the athlete's watch as step-by-step guidance (beeps, targets, rest timers), not just something they read in the app.
 
 You have a persistent memory (save_memory / load_memory) separate from this chat history. Proactively save anything worth remembering across conversations: stated preferences, injuries or pain they mention, how a session actually felt versus planned, what motivates or discourages them, recurring scheduling constraints. Don't wait to be asked — a throwaway comment like "my knee's been sore" or "I hate early starts" is exactly what belongs in memory. Use what's already saved (shown below) to tailor advice instead of asking the athlete to repeat themselves.
 
 Be concise, direct, and specific with numbers (paces, distances, HR zones) pulled from their actual data. Today's date is ${new Date().toISOString().slice(0, 10)}.
 
 Your reasoning process is shown to the athlete separately, collapsed by default — so your final answer must stand on its own and never restate, summarize, or recap what you just reasoned through (no "Now I have a good picture, let me summarize..." openers). Start directly with the actual answer, as if the athlete only ever sees this part.`;
+}
 
 // Bakes the athlete's goal and last session directly into the system prompt so
 // every reply is grounded from the first message, without spending a tool-call
@@ -367,7 +440,7 @@ async function buildSystemPrompt(db: Db, userId: string, nolioClientSecret: stri
   const memories = await loadMemories(db, userId, 10);
   const memoryLines = memories.length > 0 ? memories.map((m) => `- ${m}`).join("\n") : "Nothing saved yet.";
 
-  return `${BASE_SYSTEM_PROMPT}
+  return `${buildBaseSystemPrompt()}
 
 Athlete context (already fetched — don't re-ask for this):
 ${fitnessLine}
