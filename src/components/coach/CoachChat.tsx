@@ -13,6 +13,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useI18n } from "../../lib/i18n/context";
+import { markdownTableWrapper } from "../../lib/markdownTableWrapper";
 
 function textOf(content: ChatMessage["content"]): string {
   if (typeof content === "string") return content;
@@ -236,7 +237,9 @@ export function CoachChat() {
                 )}
                 {textOf(m.content).trim() && (
                   <div className="typeset typeset-docs max-w-[37em]">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{textOf(m.content)}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownTableWrapper}>
+                      {textOf(m.content)}
+                    </ReactMarkdown>
                   </div>
                 )}
               </>

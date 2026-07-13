@@ -10,6 +10,7 @@ import { Spinner } from "../shared/Spinner";
 import { Button } from "../shared/Button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { markdownTableWrapper } from "../../lib/markdownTableWrapper";
 import { useI18n } from "../../lib/i18n/context";
 
 interface Props {
@@ -104,7 +105,9 @@ export function WorkoutDetail({ sessionId, isCompleted, onBack, onLogged }: Prop
             <CardContent>
               <p className="text-neutral-500 text-xs uppercase tracking-wide mb-2">{t("workout.notesStat")}</p>
               <div className="typeset typeset-docs max-w-none text-neutral-300 text-sm">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{session.description}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownTableWrapper}>
+                  {session.description}
+                </ReactMarkdown>
               </div>
             </CardContent>
           </Card>
