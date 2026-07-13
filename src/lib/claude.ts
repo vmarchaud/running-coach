@@ -146,22 +146,22 @@ export async function callClaude(
 
   // The Nemotron model "thinks out loud" before its final answer — either via
   // a separate reasoning_content field (the DeepSeek-R1-style convention many
-  // OpenAI-compatible reasoning-model hosts use) or an inline <think>...</think>
-  // block at the start of content. Split it into its own block either way so
-  // the UI can render it as a collapsed-by-default disclosure instead of
-  // dumping raw chain-of-thought into the reply.
-  if (typeof msg.reasoning_content === "string" && msg.reasoning_content.trim()) {
-    content.push({ type: "thinking", text: msg.reasoning_content.trim() });
-  }
-
+  // OpenAI-compatible reasoning-model hosts use) or one or more inline
+  // <think>...</think> blocks anywhere in content (observed: not always at
+  // the very start, and sometimes more than one). Always strip every
+  // <think>...</think> occurrence from the body regardless of which source we
+  // use for the thinking block, so raw reasoning markup never leaks into the
+  // visible reply — and only ever push ONE thinking block, preferring
+  // reasoning_content, so the same reasoning never shows up twice.
   let bodyText: string = msg.content ?? "";
-  const thinkMatch = /^\s*<think>([\s\S]*?)<\/think>/i.exec(bodyText);
-  if (thinkMatch) {
-    content.push({ type: "thinking", text: thinkMatch[1].trim() });
-    bodyText = bodyText.slice(thinkMatch[0].length);
-  }
+  const inlineThinking = [...bodyText.matchAll(/<think>([\s\S]*?)<\/think>/gi)].map((m) => m[1].trim());
+  bodyText = bodyText.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
 
-  if (bodyText.trim()) content.push({ type: "text", text: bodyText.trim() });
+  const reasoning = typeof msg.reasoning_content === "string" ? msg.reasoning_content.trim() : "";
+  const thinkingText = reasoning || inlineThinking.join("\n\n");
+
+  if (thinkingText) content.push({ type: "thinking", text: thinkingText });
+  if (bodyText) content.push({ type: "text", text: bodyText });
 
   for (const tc of msg.tool_calls ?? []) {
     let input: Record<string, unknown> = {};

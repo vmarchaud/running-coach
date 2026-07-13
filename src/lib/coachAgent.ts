@@ -411,6 +411,12 @@ export async function runCoachAgent(
   const messages: ClaudeMessage[] = [...history];
   const systemPrompt = await buildSystemPrompt(db, userId, nolioClientSecret);
 
+  // Set when we inject a synthetic "please actually answer" nudge below — it
+  // needs to be in `messages` for the *next* callClaude request, but must
+  // never end up in what's persisted/rendered as chat history (the athlete
+  // never sent it), so it's spliced back out right after that request.
+  let pendingNudgeIndex: number | null = null;
+
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const response = await callClaude(nvidiaApiKey, messages, {
       system: systemPrompt,
@@ -419,12 +425,29 @@ export async function runCoachAgent(
 
     messages.push({ role: "assistant", content: response.content });
 
+    if (pendingNudgeIndex !== null) {
+      messages.splice(pendingNudgeIndex, 1);
+      pendingNudgeIndex = null;
+    }
+
     if (response.stop_reason !== "tool_use") {
       const text = response.content
         .filter((b): b is Extract<ClaudeContentBlock, { type: "text" }> => b.type === "text")
         .map((b) => b.text)
         .join("\n");
-      return { reply: text, messages };
+
+      if (text) return { reply: text, messages };
+
+      // The model sometimes spends its whole turn "thinking out loud" (now
+      // split into a thinking block) without ever writing a visible answer —
+      // returning here would silently show nothing. Nudge it to actually
+      // answer instead of ending the turn on empty text.
+      pendingNudgeIndex = messages.length;
+      messages.push({
+        role: "user",
+        content: "Please give your actual answer now — a concise reply the athlete can read, not more reasoning.",
+      });
+      continue;
     }
 
     const toolUses = response.content.filter(
