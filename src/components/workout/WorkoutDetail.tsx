@@ -69,10 +69,15 @@ export function WorkoutDetail({ sessionId, isCompleted, onBack, onLogged }: Prop
 
         <Card>
           <CardContent className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">{t("workout.distanceStat")}</p>
-              <p className="text-2xl font-bold">{session.distance != null ? `${session.distance} km` : t("workout.noDataPlaceholder")}</p>
-            </div>
+            {/* A real nonzero distance only, not the raw != null check — Nolio
+                returns a recorded 0 (not null) for duration-only sessions like
+                strength work, where a "0 km" stat is just noise. */}
+            {!!session.distance && (
+              <div>
+                <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">{t("workout.distanceStat")}</p>
+                <p className="text-2xl font-bold">{session.distance} km</p>
+              </div>
+            )}
             <div>
               <p className="text-neutral-500 text-xs uppercase tracking-wide mb-1">{t("workout.durationStat")}</p>
               <p className="text-2xl font-bold">

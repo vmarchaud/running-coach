@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import type { Db } from "../../db";
-import { users, plannedTrainingRefs } from "../../db/schema";
+import { users, plannedTrainingRefs, strengthMaxes } from "../../db/schema";
 import { callClaude, ClaudeContentBlock, ClaudeMessage, ClaudeTool } from "./claude";
 import {
   getTrainings,
@@ -58,7 +58,7 @@ async function findPlannedTrainingRef(
 // worked example per sport.
 const STRUCTURED_WORKOUT_GUIDE = `IMPORTANT — always build a structured_workout for interval/tempo running, cycling, and Hyrox/strength sessions (not just a rest day or a plain easy run) so it reaches the athlete's watch as real step-by-step guidance, not just a description they have to read in the app themselves.
 
-Even when you provide structured_workout, ALSO always fill the top-level distance and duration fields with the session's real totals (sum the distance/duration across every step, including inside repetition blocks — e.g. 5x1km with 90s recovery jogs between = 5km of work, not 0). The app's weekly distance target and Nolio's own summaries read those top-level fields directly, not the structured steps — leaving them blank or at 0 makes a real session look like it never happened in weekly totals.`;
+Whether or not you build a structured_workout, ALWAYS fill the top-level distance and duration fields for any session with a known total (any run, ride, or other distance/time-based session — even a plain-text-description one). Compute the real total yourself: sum the distance/duration across every planned block, including inside repetition blocks (e.g. 5x1km with 90s recovery jogs between = 5km of work, not 0). Never leave distance at 0 or blank for a session that clearly has one — e.g. a session literally named "Long Run 20km" must have distance: 20, full stop, even if you're also writing the pace breakdown as a text description instead of a structured_workout. The app's weekly distance target and Nolio's own summaries read those top-level fields directly — leaving them blank or at 0 makes a real session look like it never happened in weekly totals. Distance-less sessions (strength, rest days, mobility) should genuinely omit distance rather than sending 0.`;
 
 const STRUCTURED_WORKOUT_SCHEMA_HINT = `Nolio's structured workout format — an array of nodes. Push real structured steps for anything with intervals/reps/sets (running intervals, tempo blocks, Hyrox, strength) so the athlete's watch actually beeps/prompts through it; a plain rest day or fully steady easy run can skip this and just use duration/distance/description.
 
@@ -446,12 +446,19 @@ async function buildSystemPrompt(db: Db, userId: string, nolioClientSecret: stri
   const memories = await loadMemories(db, userId, 10);
   const memoryLines = memories.length > 0 ? memories.map((m) => `- ${m}`).join("\n") : "Nothing saved yet.";
 
+  const maxes = await db.select().from(strengthMaxes).where(eq(strengthMaxes.userId, userId)).all();
+  const strengthMaxLine =
+    maxes.length > 0
+      ? `Strength maxes (1RM, set by the athlete in Settings): ${maxes.map((m) => `${m.exercise} ${m.valueKg}kg`).join(", ")}. When you write a %1RM-based strength/Hyrox session (e.g. "4x5 @ 75% 1RM"), compute the actual working weight from these (e.g. 75% of 100kg = 75kg) and state it directly instead of leaving the athlete to do that math — round to the nearest sensible plate-loadable weight (2.5kg increments).`
+      : "No strength maxes set yet — if you write a %1RM-based strength session, tell the athlete they can set their maxes in Settings so you can compute actual working weights next time; use RPE/RIR-based targets instead for now.";
+
   return `${buildBaseSystemPrompt()}
 
 Athlete context (already fetched — don't re-ask for this):
 ${fitnessLine}
 ${objectiveLine}
 Last session: ${lastSessionLine}
+${strengthMaxLine}
 
 What you've learned about this athlete so far (most recent 10 — call load_memory for the full history):
 ${memoryLines}`;

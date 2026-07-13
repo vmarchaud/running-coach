@@ -59,6 +59,19 @@ export const pushSubscriptions = sqliteTable("push_subscriptions", {
   createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
 });
 
+// Personal strength maxes (1RM per exercise), set by the athlete in Settings.
+// Profile data like fitness level/target time, not training history, so it
+// belongs here rather than in Nolio — the coach reads it to convert a
+// %1RM-based strength session (e.g. "4x5 @ 75% 1RM") into an actual working
+// weight instead of leaving the athlete to do that math.
+export const strengthMaxes = sqliteTable("strength_maxes", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  exercise: text("exercise").notNull(),
+  valueKg: integer("value_kg").notNull(),
+  updatedAt: text("updated_at").notNull().default(sql`(datetime('now'))`),
+});
+
 // Not a mirror of training data — Nolio stays the source of truth for that.
 // This is only an index of the id_partner values the coach itself assigned
 // when creating a planned training, since Nolio's update/delete endpoints are

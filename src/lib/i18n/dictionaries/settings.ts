@@ -8,6 +8,8 @@ export const settings = {
     language: "Language",
     languageEnglish: "English",
     languageFrench: "Français",
+    strengthMaxesTitle: "Strength maxes (1RM)",
+    strengthMaxesSubtitle: "Your coach uses these to convert %1RM-based strength sessions into actual working weights.",
   },
   fr: {
     title: "Réglages",
@@ -18,5 +20,7 @@ export const settings = {
     language: "Langue",
     languageEnglish: "English",
     languageFrench: "Français",
+    strengthMaxesTitle: "Maxs de force (1RM)",
+    strengthMaxesSubtitle: "Votre coach s'en sert pour convertir les séances basées sur un %1RM en charges réelles à utiliser.",
   },
 };

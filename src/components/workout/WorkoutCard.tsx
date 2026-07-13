@@ -48,7 +48,7 @@ export function WorkoutCard({ session, dayLabel, onClick }: Props) {
           </div>
 
           <div className="flex items-center gap-3 mt-1.5 text-sm text-neutral-400">
-            {session.distance != null && <span>{session.distance} km</span>}
+            {!!session.distance && <span>{session.distance} km</span>}
             {session.duration != null && <span>{formatDuration(session.duration / 60)}</span>}
             {session.rpe != null && <span>{t("workout.rpeShort")} {session.rpe}/10</span>}
           </div>

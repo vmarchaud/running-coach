@@ -32,7 +32,7 @@ export function WorkoutLogRow({ session, onSelect }: Props) {
         <div className="flex-1 min-w-0">
           <SportBadge sport={session.sport} />
           <div className="flex items-center gap-3 mt-1.5 text-sm text-neutral-400">
-            {session.distance != null && (
+            {!!session.distance && (
               <span className="text-white font-medium">{session.distance} km</span>
             )}
             {session.duration != null && <span>{formatDuration(session.duration / 60)}</span>}

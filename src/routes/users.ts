@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { createDb } from "../../db";
-import { users } from "../../db/schema";
+import { users, strengthMaxes } from "../../db/schema";
 import { createCompetition, getUpcomingObjectives } from "../lib/nolioApi";
 import { withNolioToken } from "../lib/nolioSession";
 
@@ -90,6 +90,58 @@ router.get("/me", async (c) => {
   if (!user) return c.json({ error: "Not found" }, 404);
 
   return c.json({ user });
+});
+
+// GET /api/users/strength-maxes — the athlete's saved 1RMs, set in Settings.
+router.get("/strength-maxes", async (c) => {
+  const userId = c.get("userId");
+  const db = createDb(c.env.DB);
+
+  const rows = await db.select().from(strengthMaxes).where(eq(strengthMaxes.userId, userId)).all();
+  return c.json({ maxes: rows.map((r) => ({ exercise: r.exercise, valueKg: r.valueKg })) });
+});
+
+// PUT /api/users/strength-maxes — upsert one exercise's 1RM. A value of 0 or
+// missing removes it (the athlete cleared the field in Settings).
+router.put("/strength-maxes", async (c) => {
+  const userId = c.get("userId");
+  const body = await c.req.json<{ exercise: string; valueKg: number }>();
+
+  if (!body.exercise?.trim()) return c.json({ error: "exercise is required" }, 400);
+
+  const db = createDb(c.env.DB);
+  const exercise = body.exercise.trim();
+
+  const existing = await db
+    .select()
+    .from(strengthMaxes)
+    .where(and(eq(strengthMaxes.userId, userId), eq(strengthMaxes.exercise, exercise)))
+    .get();
+
+  if (!body.valueKg || body.valueKg <= 0) {
+    if (existing) {
+      await db
+        .delete(strengthMaxes)
+        .where(and(eq(strengthMaxes.userId, userId), eq(strengthMaxes.exercise, exercise)));
+    }
+    return c.json({ ok: true });
+  }
+
+  if (existing) {
+    await db
+      .update(strengthMaxes)
+      .set({ valueKg: body.valueKg, updatedAt: new Date().toISOString() })
+      .where(and(eq(strengthMaxes.userId, userId), eq(strengthMaxes.exercise, exercise)));
+  } else {
+    await db.insert(strengthMaxes).values({
+      id: crypto.randomUUID(),
+      userId,
+      exercise,
+      valueKg: body.valueKg,
+    });
+  }
+
+  return c.json({ ok: true });
 });
 
 export default router;
