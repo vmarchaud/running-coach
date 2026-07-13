@@ -31,11 +31,15 @@ self.addEventListener("notificationclick", (event) => {
   const url = event.notification.data?.url || "/";
 
   event.waitUntil(
-    self.clients.matchAll({ type: "window" }).then((clientsList) => {
-      for (const client of clientsList) {
-        if (client.url.includes(self.location.origin) && "focus" in client) {
-          return client.focus();
-        }
+    self.clients.matchAll({ type: "window" }).then(async (clientsList) => {
+      const existing = clientsList.find((client) => client.url.includes(self.location.origin));
+      if (existing) {
+        // focus() alone leaves the window on whatever page it already had open
+        // — navigate() is what actually takes the athlete to the right tab
+        // (e.g. straight into the Coach chat) instead of just the dashboard.
+        if ("navigate" in existing) await existing.navigate(url);
+        if ("focus" in existing) return existing.focus();
+        return;
       }
       if (self.clients.openWindow) return self.clients.openWindow(url);
     })

@@ -27,10 +27,24 @@ function consumeAuthRedirect(): { userId: string | null; error: string | null } 
   return { userId, error };
 }
 
+// A push notification (e.g. the coach's periodic check-in) deep-links to
+// /?tab=coach — read it once on load and strip it from the URL, same pattern
+// as the Nolio auth redirect above.
+function consumeTabParam(): Tab | null {
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get("tab");
+  if (!tab) return null;
+
+  window.history.replaceState({}, "", window.location.pathname);
+  return (["dashboard", "plan", "history", "coach", "settings"] as const).includes(tab as Tab)
+    ? (tab as Tab)
+    : null;
+}
+
 export default function App() {
   const [view, setView] = useState<View | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("dashboard");
+  const [tab, setTab] = useState<Tab>(() => consumeTabParam() ?? "dashboard");
   const [selectedSession, setSelectedSession] = useState<{ id: number; isCompleted: boolean } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const { textSize, setTextSize } = useTextSize();
