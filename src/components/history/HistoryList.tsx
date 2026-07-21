@@ -18,16 +18,19 @@ export function HistoryList({ onWorkoutSelect, refreshKey }: Props) {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = (before?: string, append = false) => {
     if (!append) setLoading(true);
     else setLoadingMore(true);
+    setError(null);
 
     getHistorySessions(before, PAGE_SIZE)
       .then(({ sessions: page }) => {
         setSessions((prev) => (append ? [...prev, ...page] : page));
         setHasMore(page.length === PAGE_SIZE);
       })
+      .catch((e) => setError(e.message))
       .finally(() => {
         setLoading(false);
         setLoadingMore(false);
@@ -40,6 +43,15 @@ export function HistoryList({ onWorkoutSelect, refreshKey }: Props) {
     return (
       <div className="flex items-center justify-center py-20">
         <Spinner className="w-8 h-8" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-20 text-neutral-400 px-6">
+        <p>{t("common.somethingWrong")}</p>
+        <p className="text-neutral-600 text-xs mt-2 break-words">{error}</p>
       </div>
     );
   }

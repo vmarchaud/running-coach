@@ -24,12 +24,15 @@ export function WorkoutDetail({ sessionId, isCompleted, onBack, onLogged }: Prop
   const { t } = useI18n();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showLogForm, setShowLogForm] = useState(false);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     getSessionDetail(sessionId, isCompleted)
       .then(setSession)
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [sessionId, isCompleted]);
 
@@ -41,7 +44,14 @@ export function WorkoutDetail({ sessionId, isCompleted, onBack, onLogged }: Prop
     );
   }
 
-  if (!session) return null;
+  if (error || !session) {
+    return (
+      <div className="text-center py-20 text-neutral-400 px-6">
+        <p>{t("common.somethingWrong")}</p>
+        {error && <p className="text-neutral-600 text-xs mt-2 break-words">{error}</p>}
+      </div>
+    );
+  }
 
   const dateLabel = new Date(session.dateStart + "T00:00:00").toLocaleDateString("en-GB", {
     weekday: "long",

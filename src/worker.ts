@@ -9,6 +9,7 @@ import nolioRouter from "./routes/nolio";
 import coachRouter from "./routes/coach";
 import notificationsRouter from "./routes/notifications";
 import { runScheduledCheckins } from "./lib/checkin";
+import { NolioApiError } from "./lib/nolioApi";
 
 type Bindings = {
   ASSETS: Fetcher;
@@ -57,6 +58,20 @@ app.route("/api/coach", coachRouter);
 app.route("/api/notifications", notificationsRouter);
 
 app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
+
+// Without this, any uncaught error in a route (e.g. Nolio rejecting a call
+// because the account's plan no longer allows an endpoint) became a bare,
+// bodyless 500 from Hono's default handler — the actual upstream reason was
+// discarded, showing up to the athlete as just "backend is down". Surface it
+// instead: a NolioApiError already carries the real status and Nolio's raw
+// response text, so pass both straight through.
+app.onError((err, c) => {
+  console.error(err);
+  if (err instanceof NolioApiError) {
+    return c.json({ error: `Nolio API error: ${err.message}`, upstreamStatus: err.status }, 502);
+  }
+  return c.json({ error: err.message || "Internal server error" }, 500);
+});
 
 export default {
   fetch: app.fetch,

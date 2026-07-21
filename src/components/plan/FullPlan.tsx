@@ -14,11 +14,14 @@ export function FullPlan({ onWorkoutSelect, refreshKey }: Props) {
   const { t } = useI18n();
   const [byWeek, setByWeek] = useState<Record<string, Session[]> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     getPlanSessions()
       .then((d) => setByWeek(d.byWeek))
+      .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [refreshKey]);
 
@@ -30,7 +33,14 @@ export function FullPlan({ onWorkoutSelect, refreshKey }: Props) {
     );
   }
 
-  if (!byWeek) return null;
+  if (error || !byWeek) {
+    return (
+      <div className="text-center py-20 text-neutral-400 px-6">
+        <p>{t("common.somethingWrong")}</p>
+        {error && <p className="text-neutral-600 text-xs mt-2 break-words">{error}</p>}
+      </div>
+    );
+  }
 
   const currentWeekStart = isoDate(weekMondayFromDate(new Date()));
   const weekStarts = Object.keys(byWeek).sort();
