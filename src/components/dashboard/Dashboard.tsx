@@ -48,8 +48,9 @@ export function Dashboard({ onWorkoutSelect, refreshKey }: Props) {
 
   if (error || !week) {
     return (
-      <div className="text-center py-20 text-neutral-400">
+      <div className="text-center py-20 text-neutral-400 px-6">
         <p>{t("common.somethingWrong")}</p>
+        {error && <p className="text-neutral-600 text-xs mt-2 break-words">{error}</p>}
       </div>
     );
   }
