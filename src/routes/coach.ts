@@ -4,6 +4,12 @@ import { createDb } from "../../db";
 import { coachMessages } from "../../db/schema";
 import { runCoachAgent } from "../lib/coachAgent";
 import type { ClaudeMessage } from "../lib/claude";
+import { flowMiddleware, workersOtelConfig } from '../../focale.instrument.mjs';
+import { httpInstrumentationMiddleware } from '@hono/otel';
+import { instrument } from '@microlabs/otel-cf-workers';
+
+
+
 
 type Bindings = {
   DB: D1Database;
@@ -13,6 +19,8 @@ type Bindings = {
 type Variables = { userId: string };
 
 const router = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+router.use('*', httpInstrumentationMiddleware());
+router.use('*', flowMiddleware('coach_chat_and_checkins'));
 
 // GET /api/coach/messages — full conversation history, persisted server-side so it
 // survives a refresh and follows the athlete across devices (keyed by their
@@ -118,4 +126,4 @@ router.post("/chat", async (c) => {
   });
 });
 
-export default router;
+export default instrument(router, workersOtelConfig);

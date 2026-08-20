@@ -4,6 +4,8 @@ import { users, nolioTokens, coachMessages, pushSubscriptions } from "../../db/s
 import { runCoachAgent } from "./coachAgent";
 import { sendPushNotification } from "./webPush";
 import type { ClaudeMessage } from "./claude";
+import { withFlow } from '../../focale.instrument.mjs';
+
 
 // Cron runs daily; this gate keeps the actual per-athlete cadence at roughly
 // every 2-3 days rather than every single run.
@@ -121,4 +123,9 @@ async function checkinForUser(db: Db, userId: string, env: CheckinEnv): Promise<
         .where(and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.id, sub.id)));
     }
   }
+}
+
+
+export async function focaleWatch_coach_chat_and_checkins() {
+  return withFlow('coach_chat_and_checkins', async () => undefined);
 }

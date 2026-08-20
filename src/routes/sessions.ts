@@ -12,11 +12,19 @@ import {
 import { withNolioToken } from "../lib/nolioSession";
 import { mapNolioTraining, isFulfilledBy, Session } from "../lib/sessionMapper";
 import { addDays, isoDate, weekMondayFromDate } from "../lib/dateUtils";
+import { flowMiddleware, workersOtelConfig } from '../../focale.instrument.mjs';
+import { httpInstrumentationMiddleware } from '@hono/otel';
+import { instrument } from '@microlabs/otel-cf-workers';
+
+
+
 
 type Bindings = { DB: D1Database; NOLIO_CLIENT_SECRET: string };
 type Variables = { userId: string };
 
 const router = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+router.use('*', httpInstrumentationMiddleware());
+router.use('*', flowMiddleware('session_logging_and_scheduling'));
 
 function withToken<T>(c: any, fn: (token: string) => Promise<T>): Promise<T> {
   const db = createDb(c.env.DB);
@@ -200,4 +208,4 @@ router.post("/schedule", async (c) => {
   return c.json(result, 201);
 });
 
-export default router;
+export default instrument(router, workersOtelConfig);
