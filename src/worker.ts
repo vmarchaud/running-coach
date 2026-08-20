@@ -18,7 +18,7 @@ const started = meter.createCounter('focale.flow.started');
 const succeeded = meter.createCounter('focale.flow.succeeded');
 const failed = meter.createCounter('focale.flow.failed');
 const duration = meter.createHistogram('focale.flow.duration', { unit: 'ms' });
-const logger = logs.getLogger('focale');
+const focaleLogger = logs.getLogger('focale');
 
 
 
@@ -48,7 +48,7 @@ app.use('*', async (_c, next) => {
       span.recordException(err);
       span.setStatus({ code: SpanStatusCode.ERROR });
       failed.add(1, { 'focale.flow_key': 'nolio_auth_and_session', 'focale.signal': 'nolio_auth_and_session.failed' });
-      logger.emit({
+      focaleLogger.emit({
         severityNumber: SeverityNumber.ERROR,
         body: err instanceof Error ? err.message : String(err),
         attributes: { 'focale.flow_key': 'nolio_auth_and_session', 'focale.signal': 'nolio_auth_and_session.failed' },
