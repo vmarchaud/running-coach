@@ -13,7 +13,10 @@ import { withNolioToken } from "../lib/nolioSession";
 import { mapNolioTraining, isFulfilledBy, Session } from "../lib/sessionMapper";
 import { addDays, isoDate, weekMondayFromDate } from "../lib/dateUtils";
 import { flowMiddleware, workersOtelConfig } from '../../focale.instrument.mjs';
-import { httpInstrumentationMiddleware } from '@hono/otel';
+import { httpInstrumentationMiddleware } from '@hono/otel'; // per-request HTTP span
+// instrument() wraps the router so @microlabs/otel-cf-workers can export the
+// spans, metrics and logs to FOCALE_DSN from inside a Cloudflare Worker (there is
+// no Node-style auto-instrumentation on Workers).
 import { instrument } from '@microlabs/otel-cf-workers';
 
 
@@ -23,6 +26,8 @@ type Bindings = { DB: D1Database; NOLIO_CLIENT_SECRET: string };
 type Variables = { userId: string };
 
 const router = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+// These are two different layers, not duplicates: httpInstrumentationMiddleware
+// adds the HTTP span, flowMiddleware adds the focussed session flow span.
 router.use('*', httpInstrumentationMiddleware());
 router.use('*', flowMiddleware('session_logging_and_scheduling'));
 
