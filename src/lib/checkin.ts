@@ -4,6 +4,17 @@ import { users, nolioTokens, coachMessages, pushSubscriptions } from "../../db/s
 import { runCoachAgent } from "./coachAgent";
 import { sendPushNotification } from "./webPush";
 import type { ClaudeMessage } from "./claude";
+import { trace, metrics, SpanStatusCode } from '@opentelemetry/api';
+import { logs, SeverityNumber } from '@opentelemetry/api-logs';
+const tracer = trace.getTracer('focale');
+const meter = metrics.getMeter('focale');
+const started = meter.createCounter('focale.flow.started');
+const succeeded = meter.createCounter('focale.flow.succeeded');
+const failed = meter.createCounter('focale.flow.failed');
+const duration = meter.createHistogram('focale.flow.duration', { unit: 'ms' });
+const logger = logs.getLogger('focale');
+
+
 
 // Cron runs daily; this gate keeps the actual per-athlete cadence at roughly
 // every 2-3 days rather than every single run.
@@ -121,4 +132,33 @@ async function checkinForUser(db: Db, userId: string, env: CheckinEnv): Promise<
         .where(and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.id, sub.id)));
     }
   }
+}
+
+
+export async function focaleWatch_coach_chat_and_checkins() {
+  const attrs = { 'focale.flow_key': 'coach_chat_and_checkins', 'focale.signal': 'coach_chat_and_checkins.started' };
+  started.add(1, attrs);
+  const t0 = Date.now();
+  return tracer.startActiveSpan('coach_chat_and_checkins', { attributes: attrs }, async (span) => {
+    try {
+      span.setAttribute('focale.signal', 'coach_chat_and_checkins.succeeded');
+      span.setStatus({ code: SpanStatusCode.OK });
+      succeeded.add(1, { 'focale.flow_key': 'coach_chat_and_checkins', 'focale.signal': 'coach_chat_and_checkins.succeeded' });
+      return undefined;
+    } catch (err) {
+      span.setAttribute('focale.signal', 'coach_chat_and_checkins.failed');
+      span.recordException(err);
+      span.setStatus({ code: SpanStatusCode.ERROR });
+      failed.add(1, { 'focale.flow_key': 'coach_chat_and_checkins', 'focale.signal': 'coach_chat_and_checkins.failed' });
+      logger.emit({
+        severityNumber: SeverityNumber.ERROR,
+        body: err instanceof Error ? err.message : String(err),
+        attributes: { 'focale.flow_key': 'coach_chat_and_checkins', 'focale.signal': 'coach_chat_and_checkins.failed' },
+      });
+      throw err;
+    } finally {
+      duration.record(Date.now() - t0, { 'focale.flow_key': 'coach_chat_and_checkins' });
+      span.end();
+    }
+  });
 }

@@ -4,6 +4,17 @@ import { createDb } from "../../db";
 import { coachMessages } from "../../db/schema";
 import { runCoachAgent } from "../lib/coachAgent";
 import type { ClaudeMessage } from "../lib/claude";
+import { trace, metrics, SpanStatusCode } from '@opentelemetry/api';
+import { logs, SeverityNumber } from '@opentelemetry/api-logs';
+const tracer = trace.getTracer('focale');
+const meter = metrics.getMeter('focale');
+const started = meter.createCounter('focale.flow.started');
+const succeeded = meter.createCounter('focale.flow.succeeded');
+const failed = meter.createCounter('focale.flow.failed');
+const duration = meter.createHistogram('focale.flow.duration', { unit: 'ms' });
+const logger = logs.getLogger('focale');
+
+
 
 type Bindings = {
   DB: D1Database;
@@ -13,6 +24,33 @@ type Bindings = {
 type Variables = { userId: string };
 
 const router = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+router.use('*', async (_c, next) => {
+  const attrs = { 'focale.flow_key': 'coach_chat_and_checkins', 'focale.signal': 'coach_chat_and_checkins.started' };
+  started.add(1, attrs);
+  const t0 = Date.now();
+  return tracer.startActiveSpan('coach_chat_and_checkins', { attributes: attrs }, async (span) => {
+    try {
+      await next();
+      span.setAttribute('focale.signal', 'coach_chat_and_checkins.succeeded');
+      span.setStatus({ code: SpanStatusCode.OK });
+      succeeded.add(1, { 'focale.flow_key': 'coach_chat_and_checkins', 'focale.signal': 'coach_chat_and_checkins.succeeded' });
+    } catch (err) {
+      span.setAttribute('focale.signal', 'coach_chat_and_checkins.failed');
+      span.recordException(err);
+      span.setStatus({ code: SpanStatusCode.ERROR });
+      failed.add(1, { 'focale.flow_key': 'coach_chat_and_checkins', 'focale.signal': 'coach_chat_and_checkins.failed' });
+      logger.emit({
+        severityNumber: SeverityNumber.ERROR,
+        body: err instanceof Error ? err.message : String(err),
+        attributes: { 'focale.flow_key': 'coach_chat_and_checkins', 'focale.signal': 'coach_chat_and_checkins.failed' },
+      });
+      throw err;
+    } finally {
+      duration.record(Date.now() - t0, { 'focale.flow_key': 'coach_chat_and_checkins' });
+      span.end();
+    }
+  });
+});
 
 // GET /api/coach/messages — full conversation history, persisted server-side so it
 // survives a refresh and follows the athlete across devices (keyed by their
