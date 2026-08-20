@@ -10,6 +10,7 @@ import coachRouter from "./routes/coach";
 import notificationsRouter from "./routes/notifications";
 import { runScheduledCheckins } from "./lib/checkin";
 import { NolioApiError } from "./lib/nolioApi";
+import { bindFocale, initFocale, withFocaleFlow } from "./lib/focale";
 
 type Bindings = {
   ASSETS: Fetcher;
@@ -37,17 +38,19 @@ app.use("/api/*", async (c, next) => {
   const userId = c.req.header("X-User-Id");
   if (!userId) return c.json({ error: "Missing X-User-Id header" }, 401);
 
-  const db = createDb(c.env.DB);
-  const session = await db
-    .select({ userId: nolioTokens.userId })
-    .from(nolioTokens)
-    .where(eq(nolioTokens.userId, userId))
-    .get();
+  return withFocaleFlow("nolio_auth_and_session", "nolio.session.validate", async () => {
+    const db = createDb(c.env.DB);
+    const session = await db
+      .select({ userId: nolioTokens.userId })
+      .from(nolioTokens)
+      .where(eq(nolioTokens.userId, userId))
+      .get();
 
-  if (!session) return c.json({ error: "Not authenticated with Nolio" }, 401);
+    if (!session) return c.json({ error: "Not authenticated with Nolio" }, 401);
 
-  c.set("userId", userId);
-  return next();
+    c.set("userId", userId);
+    return next();
+  });
 });
 
 app.get("/api/health", (c) => c.json({ ok: true }));
@@ -74,10 +77,16 @@ app.onError((err, c) => {
 });
 
 export default {
-  fetch: app.fetch,
+  fetch(request: Request, env: Bindings, ctx: ExecutionContext): Promise<Response> {
+    bindFocale(env);
+    initFocale(env);
+    return app.fetch(request, env, ctx);
+  },
   // Cloudflare Cron Trigger (see wrangler.json) — runs the coach's periodic
   // check-in/auto-planning job for every athlete due for one.
   scheduled(_event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
+    bindFocale(env);
+    initFocale(env);
     ctx.waitUntil(runScheduledCheckins(env));
   },
 };

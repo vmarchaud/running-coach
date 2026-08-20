@@ -4,6 +4,7 @@ import { createDb } from "../../db";
 import { coachMessages } from "../../db/schema";
 import { runCoachAgent } from "../lib/coachAgent";
 import type { ClaudeMessage } from "../lib/claude";
+import { withFocaleFlow } from "../lib/focale";
 
 type Bindings = {
   DB: D1Database;
@@ -19,29 +20,33 @@ const router = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 // Nolio-authenticated userId, not a per-browser localStorage entry).
 router.get("/messages", async (c) => {
   const userId = c.get("userId");
-  const db = createDb(c.env.DB);
+  return withFocaleFlow("coach_chat_and_checkins", "coach.messages.list", async () => {
+    const db = createDb(c.env.DB);
 
-  const rows = await db
-    .select()
-    .from(coachMessages)
-    .where(eq(coachMessages.userId, userId))
-    .orderBy(asc(coachMessages.createdAt))
-    .all();
+    const rows = await db
+      .select()
+      .from(coachMessages)
+      .where(eq(coachMessages.userId, userId))
+      .orderBy(asc(coachMessages.createdAt))
+      .all();
 
-  const messages: ClaudeMessage[] = rows.map((r) => ({
-    role: r.role as "user" | "assistant",
-    content: JSON.parse(r.content),
-  }));
+    const messages: ClaudeMessage[] = rows.map((r) => ({
+      role: r.role as "user" | "assistant",
+      content: JSON.parse(r.content),
+    }));
 
-  return c.json({ messages });
+    return c.json({ messages });
+  });
 });
 
 // DELETE /api/coach/messages — clear the conversation and start fresh.
 router.delete("/messages", async (c) => {
   const userId = c.get("userId");
-  const db = createDb(c.env.DB);
-  await db.delete(coachMessages).where(eq(coachMessages.userId, userId));
-  return c.json({ ok: true });
+  return withFocaleFlow("coach_chat_and_checkins", "coach.messages.clear", async () => {
+    const db = createDb(c.env.DB);
+    await db.delete(coachMessages).where(eq(coachMessages.userId, userId));
+    return c.json({ ok: true });
+  });
 });
 
 // POST /api/coach/chat — body: { message: string }. Server loads prior history,

@@ -19,6 +19,7 @@ import {
 import { withNolioToken } from "./nolioSession";
 import { diffDays } from "./dateUtils";
 import { saveMemory, loadMemories } from "./memory";
+import { withFocaleFlow } from "./focale";
 
 // Nolio's update/delete endpoints are keyed by id_partner, which its own GET
 // endpoints never return — only nolio_id. So the coach can only update/delete
@@ -496,6 +497,19 @@ export type AgentEvent =
   | { type: "tool_end"; id: string; name: string; ok: boolean };
 
 export async function runCoachAgent(
+  db: Db,
+  userId: string,
+  nolioClientSecret: string,
+  nvidiaApiKey: string,
+  history: ClaudeMessage[],
+  onEvent?: (event: AgentEvent) => void | Promise<void>
+): Promise<{ reply: string; messages: ClaudeMessage[] }> {
+  return withFocaleFlow("coach_chat_and_checkins", "coach.agent.run", async () =>
+    runCoachAgentInner(db, userId, nolioClientSecret, nvidiaApiKey, history, onEvent)
+  );
+}
+
+async function runCoachAgentInner(
   db: Db,
   userId: string,
   nolioClientSecret: string,

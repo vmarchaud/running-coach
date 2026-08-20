@@ -10,6 +10,7 @@ import {
   getUpcomingObjectives,
 } from "../lib/nolioApi";
 import { withNolioToken } from "../lib/nolioSession";
+import { withFocaleFlow } from "../lib/focale";
 import { mapNolioTraining, isFulfilledBy, Session } from "../lib/sessionMapper";
 import { addDays, isoDate, weekMondayFromDate } from "../lib/dateUtils";
 
@@ -154,18 +155,20 @@ router.post("/log", async (c) => {
     feeling?: number;
   }>();
 
-  const result = await withToken(c, (token) =>
-    createTraining(token, {
-      sport_id: body.sportId,
-      name: body.name,
-      date_start: body.dateStart,
-      duration: body.duration,
-      distance: body.distance,
-      elevation_gain: body.elevationGain,
-      description: body.description,
-      rpe: body.rpe,
-      feeling: body.feeling,
-    })
+  const result = await withFocaleFlow("session_logging_and_scheduling", "session.log", async () =>
+    withToken(c, (token) =>
+      createTraining(token, {
+        sport_id: body.sportId,
+        name: body.name,
+        date_start: body.dateStart,
+        duration: body.duration,
+        distance: body.distance,
+        elevation_gain: body.elevationGain,
+        description: body.description,
+        rpe: body.rpe,
+        feeling: body.feeling,
+      })
+    )
   );
 
   return c.json(result, 201);
@@ -184,17 +187,19 @@ router.post("/schedule", async (c) => {
     rpe?: number;
   }>();
 
-  const result = await withToken(c, (token) =>
-    createPlannedTraining(token, {
-      sport_id: body.sportId,
-      name: body.name,
-      date_start: body.dateStart,
-      duration: body.duration,
-      distance: body.distance,
-      elevation_gain: body.elevationGain,
-      description: body.description,
-      rpe: body.rpe,
-    })
+  const result = await withFocaleFlow("session_logging_and_scheduling", "session.schedule", async () =>
+    withToken(c, (token) =>
+      createPlannedTraining(token, {
+        sport_id: body.sportId,
+        name: body.name,
+        date_start: body.dateStart,
+        duration: body.duration,
+        distance: body.distance,
+        elevation_gain: body.elevationGain,
+        description: body.description,
+        rpe: body.rpe,
+      })
+    )
   );
 
   return c.json(result, 201);

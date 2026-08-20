@@ -4,6 +4,7 @@ import { users, nolioTokens, coachMessages, pushSubscriptions } from "../../db/s
 import { runCoachAgent } from "./coachAgent";
 import { sendPushNotification } from "./webPush";
 import type { ClaudeMessage } from "./claude";
+import { withFocaleFlow } from "./focale";
 
 // Cron runs daily; this gate keeps the actual per-athlete cadence at roughly
 // every 2-3 days rather than every single run.
@@ -39,6 +40,12 @@ interface CheckinEnv {
 }
 
 export async function runScheduledCheckins(env: CheckinEnv): Promise<void> {
+  return withFocaleFlow("coach_chat_and_checkins", "coach.checkin.scheduled", async () => {
+    return runScheduledCheckinsInner(env);
+  });
+}
+
+async function runScheduledCheckinsInner(env: CheckinEnv): Promise<void> {
   const db = createDb(env.DB);
   const cutoff = new Date(Date.now() - CHECKIN_INTERVAL_HOURS * 60 * 60 * 1000).toISOString();
 
