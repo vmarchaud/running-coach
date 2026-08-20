@@ -1,4 +1,6 @@
 import { api } from "./client";
+import { withFlow } from '../../focale.instrument.mjs';
+
 
 export interface Session {
   id: number;
@@ -89,3 +91,8 @@ export interface Objective {
 
 export const getObjectives = () =>
   api.get<{ main: Objective | null; secondary: Objective[] }>("/api/sessions/objectives");
+
+
+export async function focaleWatch_session_logging_and_scheduling() {
+  return withFlow('session_logging_and_scheduling', async () => undefined);
+}

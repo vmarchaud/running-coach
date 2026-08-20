@@ -10,6 +10,12 @@ import coachRouter from "./routes/coach";
 import notificationsRouter from "./routes/notifications";
 import { runScheduledCheckins } from "./lib/checkin";
 import { NolioApiError } from "./lib/nolioApi";
+import { flowMiddleware, workersOtelConfig } from '../focale.instrument.mjs';
+import { httpInstrumentationMiddleware } from '@hono/otel';
+import { instrument } from '@microlabs/otel-cf-workers';
+
+
+
 
 type Bindings = {
   ASSETS: Fetcher;
@@ -22,6 +28,8 @@ type Bindings = {
 type Variables = { userId: string };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+app.use('*', httpInstrumentationMiddleware());
+app.use('*', flowMiddleware('nolio_auth_and_session'));
 
 app.use("*", logger());
 
