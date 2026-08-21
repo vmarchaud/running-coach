@@ -12,12 +12,14 @@ type Bindings = {
 };
 type Variables = { userId: string };
 
+import { flowMiddleware, withFlow } from '../focale.instrument.mjs';
+
 const router = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // GET /api/coach/messages — full conversation history, persisted server-side so it
 // survives a refresh and follows the athlete across devices (keyed by their
 // Nolio-authenticated userId, not a per-browser localStorage entry).
-router.get("/messages", async (c) => {
+router.get("/messages", flowMiddleware('coach_chat_and_checkins'), async (c) => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
 
@@ -37,7 +39,7 @@ router.get("/messages", async (c) => {
 });
 
 // DELETE /api/coach/messages — clear the conversation and start fresh.
-router.delete("/messages", async (c) => {
+router.delete("/messages", flowMiddleware('coach_chat_and_checkins'), async (c) => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
   await db.delete(coachMessages).where(eq(coachMessages.userId, userId));
@@ -48,7 +50,7 @@ router.delete("/messages", async (c) => {
 // appends the new user message, runs the agent, and persists every message
 // produced this turn (including tool_use/tool_result blocks the agent needs for
 // context on the next call).
-router.post("/chat", async (c) => {
+router.post("/chat", flowMiddleware('coach_chat_and_checkins'), async (c) => {
   const userId = c.get("userId");
   const body = await c.req.json<{ message: string }>();
 

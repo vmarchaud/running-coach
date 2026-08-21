@@ -495,7 +495,9 @@ export type AgentEvent =
   | { type: "tool_start"; id: string; name: string; label: string; input: Record<string, unknown> }
   | { type: "tool_end"; id: string; name: string; ok: boolean };
 
-export async function runCoachAgent(
+import { withFlow } from '../focale.instrument.mjs';
+
+export const runCoachAgent = withFlow('coach_chat_and_checkins', async function runCoachAgent(
   db: Db,
   userId: string,
   nolioClientSecret: string,

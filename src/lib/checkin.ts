@@ -38,7 +38,9 @@ interface CheckinEnv {
   VAPID_PRIVATE_KEY: string;
 }
 
-export async function runScheduledCheckins(env: CheckinEnv): Promise<void> {
+import { withFlow } from '../focale.instrument.mjs';
+
+export const runScheduledCheckins = withFlow('coach_chat_and_checkins', async function runScheduledCheckins(env: CheckinEnv): Promise<void> {
   const db = createDb(env.DB);
   const cutoff = new Date(Date.now() - CHECKIN_INTERVAL_HOURS * 60 * 60 * 1000).toISOString();
 
