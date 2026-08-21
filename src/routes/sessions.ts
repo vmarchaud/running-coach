@@ -19,7 +19,6 @@ type Bindings = { DB: D1Database; NOLIO_CLIENT_SECRET: string };
 type Variables = { userId: string };
 
 const router = new Hono<{ Bindings: Bindings; Variables: Variables }>();
-router.use('*', flowMiddleware('session_logging_and_scheduling'));
 
 function withToken<T>(c: any, fn: (token: string) => Promise<T>): Promise<T> {
   const db = createDb(c.env.DB);
@@ -144,7 +143,7 @@ router.get("/:id", async (c) => {
 });
 
 // POST /api/sessions/log — record a completed training.
-router.post("/log", async (c) => {
+router.post("/log", flowMiddleware('session_logging_and_scheduling'),  async (c) => {
   const body = await c.req.json<{
     name: string;
     sportId: number;
@@ -175,7 +174,7 @@ router.post("/log", async (c) => {
 });
 
 // POST /api/sessions/schedule — create a planned training.
-router.post("/schedule", async (c) => {
+router.post("/schedule", flowMiddleware('session_logging_and_scheduling'),  async (c) => {
   const body = await c.req.json<{
     name: string;
     sportId: number;

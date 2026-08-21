@@ -13,9 +13,7 @@ import { NolioApiError } from "./lib/nolioApi";
 import { workersOtelConfig } from '../focale.instrument.mjs';
 import { httpInstrumentationMiddleware } from '@hono/otel';
 import { instrument } from '@microlabs/otel-cf-workers';
-
-
-
+import { workersOtelConfig, withFlow } from '../focale.instrument.mjs';
 
 type Bindings = {
   ASSETS: Fetcher;
@@ -85,6 +83,6 @@ export default instrument({
   // Cloudflare Cron Trigger (see wrangler.json) — runs the coach's periodic
   // check-in/auto-planning job for every athlete due for one.
   scheduled(_event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
-    ctx.waitUntil(runScheduledCheckins(env));
+    ctx.waitUntil(withFlow('coach_chat_and_checkins', () => runScheduledCheckins(env)));
   },
 }, workersOtelConfig);

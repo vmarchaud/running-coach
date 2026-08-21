@@ -72,14 +72,15 @@ export function workersOtelConfig(env = {}, _trigger) {
     env.FOCALE_DSN ||
     (typeof process !== 'undefined' ? process.env.FOCALE_DSN : undefined);
   const parsed = parseDsn(dsn);
+  const base = parsed ? parsed.base : 'http://127.0.0.1:4318';
   const headers = parsed
     ? { Authorization: `Bearer ${parsed.key}` }
     : undefined;
-  const tracesEndpoint = parsed ? `${parsed.base}/v1/traces` : undefined;
-  const metricsEndpoint = parsed ? `${parsed.base}/v1/metrics` : undefined;
-  const logsEndpoint = parsed ? `${parsed.base}/v1/logs` : undefined;
+  const tracesEndpoint = `${base}/v1/traces`;
+  const metricsEndpoint = `${base}/v1/metrics`;
+  const logsEndpoint = `${base}/v1/logs`;
   return {
-    exporter: tracesEndpoint ? { url: tracesEndpoint, headers } : undefined,
+    exporter: { url: tracesEndpoint, headers },
     service: { name: env.OTEL_SERVICE_NAME || 'focale-watched' },
     focaleOtlp: { tracesEndpoint, metricsEndpoint, logsEndpoint, headers },
   };
