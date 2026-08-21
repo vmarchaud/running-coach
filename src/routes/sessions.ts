@@ -12,11 +12,14 @@ import {
 import { withNolioToken } from "../lib/nolioSession";
 import { mapNolioTraining, isFulfilledBy, Session } from "../lib/sessionMapper";
 import { addDays, isoDate, weekMondayFromDate } from "../lib/dateUtils";
+import { flowMiddleware } from '../../focale.instrument.mjs';
+
 
 type Bindings = { DB: D1Database; NOLIO_CLIENT_SECRET: string };
 type Variables = { userId: string };
 
 const router = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+router.use('*', flowMiddleware('session_logging_and_scheduling'));
 
 function withToken<T>(c: any, fn: (token: string) => Promise<T>): Promise<T> {
   const db = createDb(c.env.DB);

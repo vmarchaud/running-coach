@@ -10,6 +10,12 @@ import coachRouter from "./routes/coach";
 import notificationsRouter from "./routes/notifications";
 import { runScheduledCheckins } from "./lib/checkin";
 import { NolioApiError } from "./lib/nolioApi";
+import { workersOtelConfig } from '../focale.instrument.mjs';
+import { httpInstrumentationMiddleware } from '@hono/otel';
+import { instrument } from '@microlabs/otel-cf-workers';
+
+
+
 
 type Bindings = {
   ASSETS: Fetcher;
@@ -22,6 +28,7 @@ type Bindings = {
 type Variables = { userId: string };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+app.use('*', httpInstrumentationMiddleware());
 
 app.use("*", logger());
 
@@ -73,11 +80,11 @@ app.onError((err, c) => {
   return c.json({ error: err.message || "Internal server error" }, 500);
 });
 
-export default {
+export default instrument({
   fetch: app.fetch,
   // Cloudflare Cron Trigger (see wrangler.json) — runs the coach's periodic
   // check-in/auto-planning job for every athlete due for one.
   scheduled(_event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
     ctx.waitUntil(runScheduledCheckins(env));
   },
-};
+}, workersOtelConfig);
