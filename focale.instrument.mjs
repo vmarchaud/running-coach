@@ -222,19 +222,26 @@ export function flowMiddleware(flowKey) {
 }
 
 export function withWorkers(handler) {
-  const wrap = (fn) => {
-    if (typeof fn !== 'function') return fn;
-    return (arg0, env, arg2) => {
-      bindEnv(env);
-      return fn(arg0, env, arg2);
-    };
-  };
   if (handler && (typeof handler.fetch === 'function' || typeof handler.scheduled === 'function')) {
     return {
       ...handler,
-      fetch: wrap(handler.fetch),
-      scheduled: wrap(handler.scheduled),
+      fetch: handler.fetch
+        ? (req, env, ctx) => {
+            bindEnv(env);
+            return handler.fetch(req, env, ctx);
+          }
+        : handler.fetch,
+      scheduled: handler.scheduled
+        ? (event, env, ctx) => {
+            bindEnv(env);
+            return handler.scheduled(event, env, ctx);
+          }
+        : handler.scheduled,
     };
   }
-  return wrap(handler);
+  if (typeof handler !== 'function') return handler;
+  return (req, env, ctx) => {
+    bindEnv(env);
+    return handler(req, env, ctx);
+  };
 }
