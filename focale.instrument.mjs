@@ -32,28 +32,12 @@ const failed = meter.createCounter('focale.flow.failed');
 const duration = meter.createHistogram('focale.flow.duration', { unit: 'ms' });
 const logger = logs.getLogger('focale');
 
-function exportMetric(name, attrs, opts) {
-  const fn = globalThis.__focaleExportMetric;
-  return typeof fn === 'function' ? fn(name, attrs, opts) : Promise.resolve();
-}
-function exportLog(body, attrs, severityNumber) {
-  const fn = globalThis.__focaleExportLog;
-  return typeof fn === 'function' ? fn(body, attrs, severityNumber) : Promise.resolve();
-}
-
 export async function withFlow(flowKey, fn) {
-  const firstBoot = !booted;
   emitBoot();
   const attrs = { 'focale.flow_key': flowKey, 'focale.signal': `${flowKey}.started` };
   started.add(1, attrs);
   const t0 = Date.now();
-  const outgoing = [];
-  if (firstBoot) {
-    outgoing.push(exportMetric('focale.boot', { 'focale.boot': true }, { kind: 'sum', value: 1 }));
-  }
-  outgoing.push(exportMetric('focale.flow.started', attrs, { kind: 'sum', value: 1 }));
   return tracer.startActiveSpan(flowKey, { attributes: attrs }, async (span) => {
-    let failedFlow = false;
     try {
       const result = await fn();
       span.setAttribute('focale.signal', `${flowKey}.succeeded`);
@@ -61,39 +45,18 @@ export async function withFlow(flowKey, fn) {
       succeeded.add(1, { 'focale.flow_key': flowKey, 'focale.signal': `${flowKey}.succeeded` });
       return result;
     } catch (err) {
-      failedFlow = true;
       span.setAttribute('focale.signal', `${flowKey}.failed`);
       span.recordException(err);
       span.setStatus({ code: SpanStatusCode.ERROR });
       failed.add(1, { 'focale.flow_key': flowKey, 'focale.signal': `${flowKey}.failed` });
-      const logAttrs = { 'focale.flow_key': flowKey, 'focale.signal': `${flowKey}.failed` };
       logger.emit({
         severityNumber: SeverityNumber.ERROR,
         body: err instanceof Error ? err.message : String(err),
-        attributes: logAttrs,
+        attributes: { 'focale.flow_key': flowKey, 'focale.signal': `${flowKey}.failed` },
       });
-      outgoing.push(
-        exportLog(err instanceof Error ? err.message : String(err), logAttrs, 17),
-      );
       throw err;
     } finally {
-      const ms = Date.now() - t0;
-      duration.record(ms, { 'focale.flow_key': flowKey });
-      const signal = failedFlow ? 'failed' : 'succeeded';
-      outgoing.push(
-        exportMetric(`focale.flow.${signal}`, {
-          'focale.flow_key': flowKey,
-          'focale.signal': `${flowKey}.${signal}`,
-        }, { kind: 'sum', value: 1 }),
-      );
-      outgoing.push(
-        exportMetric('focale.flow.duration', { 'focale.flow_key': flowKey }, {
-          kind: 'histogram',
-          value: ms,
-          unit: 'ms',
-        }),
-      );
-      await Promise.allSettled(outgoing);
+      duration.record(Date.now() - t0, { 'focale.flow_key': flowKey });
       span.end();
     }
   });
