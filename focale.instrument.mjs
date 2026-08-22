@@ -1,6 +1,3 @@
-import { trace, metrics, SpanStatusCode } from '@opentelemetry/api';
-import { logs, SeverityNumber } from '@opentelemetry/api-logs';
-
 function parseDsn(dsn) {
   if (!dsn) return null;
   try {
@@ -14,63 +11,17 @@ function parseDsn(dsn) {
   }
 }
 
-let booted = false;
-function emitBoot() {
-  if (booted) return;
-  booted = true;
-  const boot = trace.getTracer('focale').startSpan('focale.boot');
-  boot.setAttribute('focale.boot', true);
-  boot.end();
-  metrics.getMeter('focale').createCounter('focale.boot').add(1, { 'focale.boot': true });
-}
-
-const tracer = trace.getTracer('focale');
-const meter = metrics.getMeter('focale');
-const started = meter.createCounter('focale.flow.started');
-const succeeded = meter.createCounter('focale.flow.succeeded');
-const failed = meter.createCounter('focale.flow.failed');
-const duration = meter.createHistogram('focale.flow.duration', { unit: 'ms' });
-const logger = logs.getLogger('focale');
-
-export async function withFlow(flowKey, fn) {
-  emitBoot();
-  const attrs = { 'focale.flow_key': flowKey, 'focale.signal': `${flowKey}.started` };
-  started.add(1, attrs);
-  const t0 = Date.now();
-  return tracer.startActiveSpan(flowKey, { attributes: attrs }, async (span) => {
-    try {
-      const result = await fn();
-      span.setAttribute('focale.signal', `${flowKey}.succeeded`);
-      span.setStatus({ code: SpanStatusCode.OK });
-      succeeded.add(1, { 'focale.flow_key': flowKey, 'focale.signal': `${flowKey}.succeeded` });
-      return result;
-    } catch (err) {
-      span.setAttribute('focale.signal', `${flowKey}.failed`);
-      span.recordException(err);
-      span.setStatus({ code: SpanStatusCode.ERROR });
-      failed.add(1, { 'focale.flow_key': flowKey, 'focale.signal': `${flowKey}.failed` });
-      logger.emit({
-        severityNumber: SeverityNumber.ERROR,
-        body: err instanceof Error ? err.message : String(err),
-        attributes: { 'focale.flow_key': flowKey, 'focale.signal': `${flowKey}.failed` },
-      });
-      throw err;
-    } finally {
-      duration.record(Date.now() - t0, { 'focale.flow_key': flowKey });
-      span.end();
-    }
-  });
-}
-
-export function flowMiddleware(flowKey) {
-  return async (_c, next) => withFlow(flowKey, () => next());
-}
-
-// Microlabs only ships traces. POST metrics and logs ourselves so they are not no-ops.
 let focaleOtlp = null;
+const spanStack = [];
+let booted = false;
 
 function otlpNano() {
   return String(Date.now() * 1e6);
+}
+function otlpId(bytes) {
+  const arr = new Uint8Array(bytes);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 function otlpAttrs(attrs) {
   return Object.entries(attrs || {}).map(([key, value]) => ({
@@ -90,7 +41,6 @@ function otlpResource() {
     attributes: otlpAttrs({
       'service.name': (focaleOtlp && focaleOtlp.serviceName) || 'focale-watched',
       'focale.runtime': 'workers',
-      'telemetry.sdk.language': 'webjs',
     }),
   };
 }
@@ -109,7 +59,23 @@ function postOtlp(url, payload) {
     .catch(() => {});
 }
 
-globalThis.__focaleExportMetric = function (name, attrs, opts) {
+function bindEnv(env) {
+  if (!env) return;
+  const dsn =
+    env.FOCALE_DSN ||
+    (typeof process !== 'undefined' ? process.env.FOCALE_DSN : undefined);
+  const parsed = parseDsn(dsn);
+  const base = parsed ? parsed.base : 'http://127.0.0.1:4318';
+  focaleOtlp = {
+    tracesEndpoint: base + '/v1/traces',
+    metricsEndpoint: base + '/v1/metrics',
+    logsEndpoint: base + '/v1/logs',
+    headers: parsed ? { Authorization: 'Bearer ' + parsed.key } : undefined,
+    serviceName: env.OTEL_SERVICE_NAME || 'focale-watched',
+  };
+}
+
+function exportMetric(name, attrs, opts) {
   if (!focaleOtlp || !focaleOtlp.metricsEndpoint) return Promise.resolve();
   const t = otlpNano();
   const point = {
@@ -143,21 +109,22 @@ globalThis.__focaleExportMetric = function (name, attrs, opts) {
       },
     ],
   });
-};
+}
 
-globalThis.__focaleExportLog = function (body, attrs, severityNumber) {
+function exportLog(body, attrs) {
   if (!focaleOtlp || !focaleOtlp.logsEndpoint) return Promise.resolve();
-  const span = trace.getActiveSpan && trace.getActiveSpan();
-  const ctx = span && span.spanContext ? span.spanContext() : null;
+  const parent = spanStack[spanStack.length - 1];
   const rec = {
     timeUnixNano: otlpNano(),
-    severityNumber: severityNumber || 17,
+    severityNumber: 17,
     severityText: 'ERROR',
     body: { stringValue: String(body) },
     attributes: otlpAttrs(attrs),
   };
-  if (ctx && ctx.traceId) rec.traceId = ctx.traceId;
-  if (ctx && ctx.spanId) rec.spanId = ctx.spanId;
+  if (parent) {
+    rec.traceId = parent.traceId;
+    rec.spanId = parent.spanId;
+  }
   return postOtlp(focaleOtlp.logsEndpoint, {
     resourceLogs: [
       {
@@ -166,30 +133,108 @@ globalThis.__focaleExportLog = function (body, attrs, severityNumber) {
       },
     ],
   });
-};
+}
 
-// Pass this function to instrument(handler, workersOtelConfig). Do not call it at import time.
-export function workersOtelConfig(env = {}, _trigger) {
-  const dsn =
-    env.FOCALE_DSN ||
-    (typeof process !== 'undefined' ? process.env.FOCALE_DSN : undefined);
-  const parsed = parseDsn(dsn);
-  const base = parsed ? parsed.base : 'http://127.0.0.1:4318';
-  const headers = parsed
-    ? { Authorization: `Bearer ${parsed.key}` }
-    : undefined;
-  const tracesEndpoint = `${base}/v1/traces`;
-  const metricsEndpoint = `${base}/v1/metrics`;
-  const logsEndpoint = `${base}/v1/logs`;
-  focaleOtlp = {
-    tracesEndpoint,
-    metricsEndpoint,
-    logsEndpoint,
-    headers,
-    serviceName: env.OTEL_SERVICE_NAME || 'focale-watched',
+function exportSpan(span) {
+  if (!focaleOtlp || !focaleOtlp.tracesEndpoint) return Promise.resolve();
+  const rec = {
+    traceId: span.traceId,
+    spanId: span.spanId,
+    name: span.name,
+    kind: 1,
+    startTimeUnixNano: span.start,
+    endTimeUnixNano: otlpNano(),
+    attributes: otlpAttrs(span.attrs),
+    status: { code: span.error ? 2 : 1 },
   };
-  return {
-    exporter: { url: tracesEndpoint, headers },
-    service: { name: focaleOtlp.serviceName },
+  if (span.parentSpanId) rec.parentSpanId = span.parentSpanId;
+  return postOtlp(focaleOtlp.tracesEndpoint, {
+    resourceSpans: [
+      {
+        resource: otlpResource(),
+        scopeSpans: [{ scope: { name: 'focale' }, spans: [rec] }],
+      },
+    ],
+  });
+}
+
+export async function withFlow(flowKey, fn) {
+  const firstBoot = !booted;
+  booted = true;
+  const parent = spanStack[spanStack.length - 1];
+  const span = {
+    name: flowKey,
+    traceId: (parent && parent.traceId) || otlpId(16),
+    spanId: otlpId(8),
+    parentSpanId: parent && parent.spanId,
+    start: otlpNano(),
+    attrs: { 'focale.flow_key': flowKey, 'focale.signal': flowKey + '.started' },
+    error: false,
   };
+  spanStack.push(span);
+  const outgoing = [];
+  if (firstBoot) {
+    outgoing.push(
+      exportSpan({
+        name: 'focale.boot',
+        traceId: span.traceId,
+        spanId: otlpId(8),
+        parentSpanId: span.spanId,
+        start: span.start,
+        attrs: { 'focale.boot': true },
+        error: false,
+      }),
+    );
+    outgoing.push(exportMetric('focale.boot', { 'focale.boot': true }, { kind: 'sum', value: 1 }));
+  }
+  const t0 = Date.now();
+  outgoing.push(exportMetric('focale.flow.started', span.attrs, { kind: 'sum', value: 1 }));
+  try {
+    const result = await fn();
+    span.attrs = { 'focale.flow_key': flowKey, 'focale.signal': flowKey + '.succeeded' };
+    outgoing.push(exportMetric('focale.flow.succeeded', span.attrs, { kind: 'sum', value: 1 }));
+    return result;
+  } catch (err) {
+    span.error = true;
+    span.attrs = { 'focale.flow_key': flowKey, 'focale.signal': flowKey + '.failed' };
+    outgoing.push(exportMetric('focale.flow.failed', span.attrs, { kind: 'sum', value: 1 }));
+    outgoing.push(exportLog(err instanceof Error ? err.message : String(err), span.attrs));
+    throw err;
+  } finally {
+    outgoing.push(
+      exportMetric('focale.flow.duration', { 'focale.flow_key': flowKey }, {
+        kind: 'histogram',
+        value: Date.now() - t0,
+        unit: 'ms',
+      }),
+    );
+    outgoing.push(exportSpan(span));
+    spanStack.pop();
+    await Promise.allSettled(outgoing);
+  }
+}
+
+export function flowMiddleware(flowKey) {
+  return async (c, next) => {
+    if (c && c.env) bindEnv(c.env);
+    return withFlow(flowKey, () => next());
+  };
+}
+
+export function withWorkers(handler) {
+  const wrap = (fn) => {
+    if (typeof fn !== 'function') return fn;
+    return (arg0, env, arg2) => {
+      bindEnv(env);
+      return fn(arg0, env, arg2);
+    };
+  };
+  if (handler && (typeof handler.fetch === 'function' || typeof handler.scheduled === 'function')) {
+    return {
+      ...handler,
+      fetch: wrap(handler.fetch),
+      scheduled: wrap(handler.scheduled),
+    };
+  }
+  return wrap(handler);
 }
