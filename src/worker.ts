@@ -11,7 +11,7 @@ import coachRouter from "./routes/coach";
 import notificationsRouter from "./routes/notifications";
 import { runScheduledCheckins } from "./lib/checkin";
 import { NolioApiError } from "./lib/nolioApi";
-import { withWorkers, withWorkers, withFlow, flowMiddleware } from '../focale.instrument.mjs';
+import { withWorkers, withFlow, withWorkers, flowMiddleware } from '../focale.instrument.mjs';
 
 type Bindings = {
   ASSETS: Fetcher;
@@ -31,7 +31,7 @@ app.use("*", logger());
 const PUBLIC_PATHS = new Set(["/api/health", "/api/nolio/connect", "/api/nolio/callback"]);
 
 // Every API route requires a userId backed by a real Nolio session — Nolio is the
-// only sign-in mechanism, so an X-User-Id header alone is not sufficient auth.                 
+// only sign-in mechanism, so an X-User-Id header alone is not sufficient auth.                  
 app.use("/api/*", flowMiddleware('nolio_auth_and_session'), async (c, next) => {
   if (PUBLIC_PATHS.has(c.req.path)) {
     return next();
