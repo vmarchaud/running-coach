@@ -1,14 +1,7 @@
 import { Hono } from "hono";
 import { createDb } from "../../db";
 import {
-  getTrainings,
-  getTrainingInfo,
-  getPlannedTrainings,
-  createTraining,
-  createPlannedTraining,
-  getKnownSports,
-  getUpcomingObjectives,
-} from "../lib/nolioApi";
+  getTrainings, getTrainingInfo, getPlannedTrainings, createTraining, createPlannedTraining, getKnownSports, getUpcomingObjectives, } from "../lib/nolioApi";
 import { withNolioToken } from "../lib/nolioSession";
 import { mapNolioTraining, isFulfilledBy, Session } from "../lib/sessionMapper";
 import { addDays, isoDate, weekMondayFromDate } from "../lib/dateUtils";

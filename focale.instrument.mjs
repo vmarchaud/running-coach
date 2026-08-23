@@ -10,6 +10,12 @@ import { Resource } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 
+// NodeSDK and getNodeAutoInstrumentations cannot run in a Worker isolate.
+// HTTP auto-instrumentation is @hono/otel on the Worker entry. This file only
+// registers official Tracer/Meter/Logger providers so those spans, withFlow,
+// and OTLP export have a backend. FOCALE_DSN is a Worker secret on env, not
+// process.env at import time, so providers start in withWorkers / bindEnv.
+
 function parseDsn(dsn) {
   if (!dsn) return null;
   try {
@@ -78,6 +84,7 @@ async function flush() {
   ]);
 }
 
+// Stash for flowMiddleware: Hono does not receive the Worker env argument.
 globalThis.__focaleBindEnv = bindEnv;
 
 let booted = false;
@@ -129,12 +136,17 @@ export async function withFlow(flowKey, fn) {
 
 export function flowMiddleware(flowKey) {
   return async (c, next) => {
+    // Hono middleware only sees c.env, not the Worker (req, env, ctx) args.
+    // withWorkers stashes bindEnv on globalThis so we can register providers
+    // before this flow span starts.
     const bind = globalThis.__focaleBindEnv;
     if (typeof bind === 'function' && c && c.env) bind(c.env);
     return withFlow(flowKey, () => next());
   };
 }
 
+// Wrap the default Worker export. bindEnv reads FOCALE_DSN from env, then
+// ctx.waitUntil(flush) so OTLP export can finish after the response.
 export function withWorkers(handler) {
   const after = (ctx, result) => {
     const done = Promise.resolve(result).finally(() => flush());

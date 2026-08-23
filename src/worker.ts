@@ -1,4 +1,4 @@
-import { httpInstrumentationMiddleware } from '@hono/otel';
+import { withWorkers, withFlow, flowMiddleware, httpInstrumentationMiddleware } from '@hono/otel';
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { eq } from "drizzle-orm";
@@ -11,7 +11,7 @@ import coachRouter from "./routes/coach";
 import notificationsRouter from "./routes/notifications";
 import { runScheduledCheckins } from "./lib/checkin";
 import { NolioApiError } from "./lib/nolioApi";
-import { withWorkers, withFlow, withWorkers, flowMiddleware } from '../focale.instrument.mjs';
+import { withWorkers } from '../focale.instrument.mjs';
 
 type Bindings = {
   ASSETS: Fetcher;
@@ -24,6 +24,7 @@ type Bindings = {
 type Variables = { userId: string };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+// Auto-instrument HTTP. Register first so route spans parent withFlow. Providers start in withWorkers from Worker env.
 app.use('*', httpInstrumentationMiddleware());
 
 app.use("*", logger());
@@ -31,7 +32,7 @@ app.use("*", logger());
 const PUBLIC_PATHS = new Set(["/api/health", "/api/nolio/connect", "/api/nolio/callback"]);
 
 // Every API route requires a userId backed by a real Nolio session — Nolio is the
-// only sign-in mechanism, so an X-User-Id header alone is not sufficient auth.     
+// only sign-in mechanism, so an X-User-Id header alone is not sufficient auth.      
 app.use("/api/*", flowMiddleware('nolio_auth_and_session'), async (c, next) => {
   if (PUBLIC_PATHS.has(c.req.path)) {
     return next();
@@ -76,6 +77,7 @@ app.onError((err, c) => {
   return c.json({ error: err.message || "Internal server error" }, 500);
 });
 
+// withWorkers registers OTEL from Worker env (FOCALE_DSN is not process.env here) and flushes after the isolate returns.
 export default withWorkers({
   fetch: app.fetch,
   // Cloudflare Cron Trigger (see wrangler.json) — runs the coach's periodic

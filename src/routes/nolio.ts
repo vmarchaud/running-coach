@@ -3,11 +3,7 @@ import { eq } from "drizzle-orm";
 import { createDb } from "../../db";
 import { nolioTokens } from "../../db/schema";
 import {
-  buildAuthorizeUrl,
-  exchangeCode,
-  refreshTokens,
-  getNolioUser,
-} from "../lib/nolioClient";
+  buildAuthorizeUrl, exchangeCode, refreshTokens, getNolioUser, } from "../lib/nolioClient";
 import { flowMiddleware } from '../../focale.instrument.mjs';
 
 
