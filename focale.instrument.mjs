@@ -51,15 +51,13 @@ function bindEnv(env) {
   tracerProvider.register({
     contextManager: new AsyncLocalStorageContextManager(),
   });
-  const meterProvider = new MeterProvider({
-    resource,
-    readers: [
-      new PeriodicExportingMetricReader({
-        exporter: new OTLPMetricExporter({ url: base + '/v1/metrics', headers }),
-        exportIntervalMillis: 60000,
-      }),
-    ],
-  });
+  const meterProvider = new MeterProvider({ resource });
+  meterProvider.addMetricReader(
+    new PeriodicExportingMetricReader({
+      exporter: new OTLPMetricExporter({ url: base + '/v1/metrics', headers }),
+      exportIntervalMillis: 60000,
+    }),
+  );
   metrics.setGlobalMeterProvider(meterProvider);
   const loggerProvider = new LoggerProvider({ resource });
   loggerProvider.addLogRecordProcessor(
