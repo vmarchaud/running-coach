@@ -1,4 +1,4 @@
-import { withWorkers, withFlow, flowMiddleware, httpInstrumentationMiddleware } from '@hono/otel';
+import { httpInstrumentationMiddleware } from '@hono/otel';
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { eq } from "drizzle-orm";
@@ -11,7 +11,7 @@ import coachRouter from "./routes/coach";
 import notificationsRouter from "./routes/notifications";
 import { runScheduledCheckins } from "./lib/checkin";
 import { NolioApiError } from "./lib/nolioApi";
-import { withWorkers } from '../focale.instrument.mjs';
+import { withWorkers, withFlow, flowMiddleware } from '../focale.instrument.mjs';
 
 type Bindings = {
   ASSETS: Fetcher;
