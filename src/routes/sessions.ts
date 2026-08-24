@@ -12,6 +12,7 @@ import {
 import { withNolioToken } from "../lib/nolioSession";
 import { mapNolioTraining, isFulfilledBy, Session } from "../lib/sessionMapper";
 import { addDays, isoDate, weekMondayFromDate } from "../lib/dateUtils";
+import { flowMiddleware } from "../../focale.instrument.mjs";
 
 type Bindings = { DB: D1Database; NOLIO_CLIENT_SECRET: string };
 type Variables = { userId: string };
@@ -141,7 +142,7 @@ router.get("/:id", async (c) => {
 });
 
 // POST /api/sessions/log — record a completed training.
-router.post("/log", async (c) => {
+router.post("/log", flowMiddleware("session_logging_and_scheduling"), async (c) => {
   const body = await c.req.json<{
     name: string;
     sportId: number;
@@ -172,7 +173,7 @@ router.post("/log", async (c) => {
 });
 
 // POST /api/sessions/schedule — create a planned training.
-router.post("/schedule", async (c) => {
+router.post("/schedule", flowMiddleware("session_logging_and_scheduling"), async (c) => {
   const body = await c.req.json<{
     name: string;
     sportId: number;

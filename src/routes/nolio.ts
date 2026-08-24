@@ -8,6 +8,7 @@ import {
   refreshTokens,
   getNolioUser,
 } from "../lib/nolioClient";
+import { flowMiddleware } from "../../focale.instrument.mjs";
 
 type Bindings = { DB: D1Database; NOLIO_CLIENT_SECRET: string; NOLIO_REDIRECT_URI: string };
 type Variables = { userId: string };
@@ -19,7 +20,7 @@ export function nolioUserIdFor(nolioId: string | number): string {
 }
 
 // GET /api/nolio/connect — full-page redirect to Nolio OAuth. This IS the login entry point.
-router.get("/connect", async (c) => {
+router.get("/connect", flowMiddleware("nolio_auth_and_session"), async (c) => {
   const state = crypto.randomUUID();
   const url = buildAuthorizeUrl(c.env.NOLIO_REDIRECT_URI, state);
   return c.redirect(url);
@@ -27,7 +28,7 @@ router.get("/connect", async (c) => {
 
 // GET /api/nolio/callback — Nolio redirects here after the user authorizes.
 // This is the only sign-in path: the Nolio account IS the app identity.
-router.get("/callback", async (c) => {
+router.get("/callback", flowMiddleware("nolio_auth_and_session"), async (c) => {
   const code = c.req.query("code");
   const error = c.req.query("error");
 

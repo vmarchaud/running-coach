@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
+import { httpInstrumentationMiddleware } from "@hono/otel";
 import { eq } from "drizzle-orm";
 import { createDb } from "../db";
 import { nolioTokens } from "../db/schema";
@@ -10,6 +11,7 @@ import coachRouter from "./routes/coach";
 import notificationsRouter from "./routes/notifications";
 import { runScheduledCheckins } from "./lib/checkin";
 import { NolioApiError } from "./lib/nolioApi";
+import { withFlow, withWorkers } from "../focale.instrument.mjs";
 
 type Bindings = {
   ASSETS: Fetcher;
@@ -23,6 +25,7 @@ type Variables = { userId: string };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
+app.use("*", httpInstrumentationMiddleware());
 app.use("*", logger());
 
 const PUBLIC_PATHS = new Set(["/api/health", "/api/nolio/connect", "/api/nolio/callback"]);
@@ -34,20 +37,22 @@ app.use("/api/*", async (c, next) => {
     return next();
   }
 
-  const userId = c.req.header("X-User-Id");
-  if (!userId) return c.json({ error: "Missing X-User-Id header" }, 401);
+  return withFlow("nolio_auth_and_session", async () => {
+    const userId = c.req.header("X-User-Id");
+    if (!userId) return c.json({ error: "Missing X-User-Id header" }, 401);
 
-  const db = createDb(c.env.DB);
-  const session = await db
-    .select({ userId: nolioTokens.userId })
-    .from(nolioTokens)
-    .where(eq(nolioTokens.userId, userId))
-    .get();
+    const db = createDb(c.env.DB);
+    const session = await db
+      .select({ userId: nolioTokens.userId })
+      .from(nolioTokens)
+      .where(eq(nolioTokens.userId, userId))
+      .get();
 
-  if (!session) return c.json({ error: "Not authenticated with Nolio" }, 401);
+    if (!session) return c.json({ error: "Not authenticated with Nolio" }, 401);
 
-  c.set("userId", userId);
-  return next();
+    c.set("userId", userId);
+    return next();
+  });
 });
 
 app.get("/api/health", (c) => c.json({ ok: true }));
@@ -73,11 +78,11 @@ app.onError((err, c) => {
   return c.json({ error: err.message || "Internal server error" }, 500);
 });
 
-export default {
+export default withWorkers({
   fetch: app.fetch,
   // Cloudflare Cron Trigger (see wrangler.json) — runs the coach's periodic
   // check-in/auto-planning job for every athlete due for one.
   scheduled(_event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
     ctx.waitUntil(runScheduledCheckins(env));
   },
-};
+});

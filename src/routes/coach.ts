@@ -4,6 +4,7 @@ import { createDb } from "../../db";
 import { coachMessages } from "../../db/schema";
 import { runCoachAgent } from "../lib/coachAgent";
 import type { ClaudeMessage } from "../lib/claude";
+import { flowMiddleware } from "../../focale.instrument.mjs";
 
 type Bindings = {
   DB: D1Database;
@@ -48,7 +49,7 @@ router.delete("/messages", async (c) => {
 // appends the new user message, runs the agent, and persists every message
 // produced this turn (including tool_use/tool_result blocks the agent needs for
 // context on the next call).
-router.post("/chat", async (c) => {
+router.post("/chat", flowMiddleware("coach_chat_and_checkins"), async (c) => {
   const userId = c.get("userId");
   const body = await c.req.json<{ message: string }>();
 
