@@ -8,13 +8,19 @@ import { LoggerProvider, SimpleLogRecordProcessor } from '@opentelemetry/sdk-log
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
 import { Resource } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
-import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 
 // NodeSDK and getNodeAutoInstrumentations cannot run in a Worker isolate.
 // HTTP auto-instrumentation is @hono/otel on the Worker entry. This file only
 // registers official Tracer/Meter/Logger providers so those spans, withFlow,
 // and OTLP export have a backend. FOCALE_DSN is a Worker secret on env, not
 // process.env at import time, so providers start in withWorkers / bindEnv.
+//
+// @opentelemetry/context-async-hooks is intentionally not imported: it pulls
+// in Node's async_hooks module, and registering an AsyncLocalStorageContextManager
+// at request time crashed the Worker isolate before it could ever answer
+// /api/health (module-load failure, not a request-level error). The OTel API's
+// default (no-op-safe) context propagation is enough for the flat, single-await
+// spans withFlow creates.
 
 function parseDsn(dsn) {
   if (!dsn) return null;
@@ -40,37 +46,39 @@ function bindEnv(env) {
   if (providers && boundDsn === (dsn || '')) return;
   boundDsn = dsn || '';
   const parsed = parseDsn(dsn);
-  const base = parsed ? parsed.base : 'http://127.0.0.1:4318';
-  const headers = parsed
-    ? { Authorization: 'Bearer ' + parsed.key }
-    : undefined;
+  // No DSN (e.g. CI, local dev without the secret set): keep the flow spans,
+  // metrics, and logs flowing through the official API/SDK providers below,
+  // but skip attaching OTLP exporters entirely rather than defaulting to a
+  // localhost collector that isn't there — that used to mean every request
+  // fired off an HTTP export doomed to fail.
   const resource = new Resource({
     [ATTR_SERVICE_NAME]: env.OTEL_SERVICE_NAME || 'focale-watched',
     'focale.runtime': 'workers',
   });
   const tracerProvider = new BasicTracerProvider({ resource });
-  tracerProvider.addSpanProcessor(
-    new SimpleSpanProcessor(
-      new OTLPTraceExporter({ url: base + '/v1/traces', headers }),
-    ),
-  );
-  tracerProvider.register({
-    contextManager: new AsyncLocalStorageContextManager(),
-  });
   const meterProvider = new MeterProvider({ resource });
-  meterProvider.addMetricReader(
-    new PeriodicExportingMetricReader({
-      exporter: new OTLPMetricExporter({ url: base + '/v1/metrics', headers }),
-      exportIntervalMillis: 60000,
-    }),
-  );
-  metrics.setGlobalMeterProvider(meterProvider);
   const loggerProvider = new LoggerProvider({ resource });
-  loggerProvider.addLogRecordProcessor(
-    new SimpleLogRecordProcessor(
-      new OTLPLogExporter({ url: base + '/v1/logs', headers }),
-    ),
-  );
+  if (parsed) {
+    const headers = { Authorization: 'Bearer ' + parsed.key };
+    tracerProvider.addSpanProcessor(
+      new SimpleSpanProcessor(
+        new OTLPTraceExporter({ url: parsed.base + '/v1/traces', headers }),
+      ),
+    );
+    meterProvider.addMetricReader(
+      new PeriodicExportingMetricReader({
+        exporter: new OTLPMetricExporter({ url: parsed.base + '/v1/metrics', headers }),
+        exportIntervalMillis: 60000,
+      }),
+    );
+    loggerProvider.addLogRecordProcessor(
+      new SimpleLogRecordProcessor(
+        new OTLPLogExporter({ url: parsed.base + '/v1/logs', headers }),
+      ),
+    );
+  }
+  tracerProvider.register();
+  metrics.setGlobalMeterProvider(meterProvider);
   logs.setGlobalLoggerProvider(loggerProvider);
   providers = { tracerProvider, meterProvider, loggerProvider };
 }
