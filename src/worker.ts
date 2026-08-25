@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
-import { otel } from "@hono/otel";
+import { httpInstrumentationMiddleware } from "@hono/otel";
 import { eq } from "drizzle-orm";
 import { createDb } from "../db";
 import { nolioTokens } from "../db/schema";
@@ -25,7 +25,7 @@ type Variables = { userId: string };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
-app.use("*", otel());
+app.use("*", httpInstrumentationMiddleware());
 app.use("*", logger());
 
 const PUBLIC_PATHS = new Set(["/api/health", "/api/nolio/connect", "/api/nolio/callback"]);
