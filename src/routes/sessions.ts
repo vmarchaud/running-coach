@@ -12,6 +12,7 @@ import {
 import { withNolioToken } from "../lib/nolioSession";
 import { mapNolioTraining, isFulfilledBy, Session } from "../lib/sessionMapper";
 import { addDays, isoDate, weekMondayFromDate } from "../lib/dateUtils";
+import { withFlow } from "../../focale.instrument.mjs";
 
 type Bindings = { DB: D1Database; NOLIO_CLIENT_SECRET: string };
 type Variables = { userId: string };
@@ -142,62 +143,66 @@ router.get("/:id", async (c) => {
 
 // POST /api/sessions/log — record a completed training.
 router.post("/log", async (c) => {
-  const body = await c.req.json<{
-    name: string;
-    sportId: number;
-    dateStart: string;
-    duration?: number;
-    distance?: number;
-    elevationGain?: number;
-    description?: string;
-    rpe?: number;
-    feeling?: number;
-  }>();
+  return withFlow("session_logging_and_scheduling", async () => {
+    const body = await c.req.json<{
+      name: string;
+      sportId: number;
+      dateStart: string;
+      duration?: number;
+      distance?: number;
+      elevationGain?: number;
+      description?: string;
+      rpe?: number;
+      feeling?: number;
+    }>();
 
-  const result = await withToken(c, (token) =>
-    createTraining(token, {
-      sport_id: body.sportId,
-      name: body.name,
-      date_start: body.dateStart,
-      duration: body.duration,
-      distance: body.distance,
-      elevation_gain: body.elevationGain,
-      description: body.description,
-      rpe: body.rpe,
-      feeling: body.feeling,
-    })
-  );
+    const result = await withToken(c, (token) =>
+      createTraining(token, {
+        sport_id: body.sportId,
+        name: body.name,
+        date_start: body.dateStart,
+        duration: body.duration,
+        distance: body.distance,
+        elevation_gain: body.elevationGain,
+        description: body.description,
+        rpe: body.rpe,
+        feeling: body.feeling,
+      })
+    );
 
-  return c.json(result, 201);
+    return c.json(result, 201);
+  });
 });
 
 // POST /api/sessions/schedule — create a planned training.
 router.post("/schedule", async (c) => {
-  const body = await c.req.json<{
-    name: string;
-    sportId: number;
-    dateStart: string;
-    duration?: number;
-    distance?: number;
-    elevationGain?: number;
-    description?: string;
-    rpe?: number;
-  }>();
+  return withFlow("session_logging_and_scheduling", async () => {
+    const body = await c.req.json<{
+      name: string;
+      sportId: number;
+      dateStart: string;
+      duration?: number;
+      distance?: number;
+      elevationGain?: number;
+      description?: string;
+      rpe?: number;
+    }>();
 
-  const result = await withToken(c, (token) =>
-    createPlannedTraining(token, {
-      sport_id: body.sportId,
-      name: body.name,
-      date_start: body.dateStart,
-      duration: body.duration,
-      distance: body.distance,
-      elevation_gain: body.elevationGain,
-      description: body.description,
-      rpe: body.rpe,
-    })
-  );
+    const result = await withToken(c, (token) =>
+      createPlannedTraining(token, {
+        sport_id: body.sportId,
+        name: body.name,
+        date_start: body.dateStart,
+        duration: body.duration,
+        distance: body.distance,
+        elevation_gain: body.elevationGain,
+        description: body.description,
+        rpe: body.rpe,
+      })
+    );
 
-  return c.json(result, 201);
+    return c.json(result, 201);
+  });
 });
 
 export default router;

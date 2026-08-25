@@ -4,6 +4,7 @@ import { users, nolioTokens, coachMessages, pushSubscriptions } from "../../db/s
 import { runCoachAgent } from "./coachAgent";
 import { sendPushNotification } from "./webPush";
 import type { ClaudeMessage } from "./claude";
+import { withFlow } from "../../focale.instrument.mjs";
 
 // Cron runs daily; this gate keeps the actual per-athlete cadence at roughly
 // every 2-3 days rather than every single run.
@@ -53,7 +54,7 @@ export async function runScheduledCheckins(env: CheckinEnv): Promise<void> {
     if (!connected) continue; // nothing to check in on without a live Nolio session
 
     try {
-      await checkinForUser(db, user.id, env);
+      await withFlow("coach_chat_and_checkins", () => checkinForUser(db, user.id, env));
     } catch {
       // One athlete's failure (Nolio token expired, model error, etc.)
       // shouldn't block check-ins for everyone else.

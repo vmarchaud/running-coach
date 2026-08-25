@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
+import { otel } from "@hono/otel";
 import { eq } from "drizzle-orm";
 import { createDb } from "../db";
 import { nolioTokens } from "../db/schema";
@@ -10,6 +11,7 @@ import coachRouter from "./routes/coach";
 import notificationsRouter from "./routes/notifications";
 import { runScheduledCheckins } from "./lib/checkin";
 import { NolioApiError } from "./lib/nolioApi";
+import { withFlow, withWorkers } from "../focale.instrument.mjs";
 
 type Bindings = {
   ASSETS: Fetcher;
@@ -23,6 +25,7 @@ type Variables = { userId: string };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
+app.use("*", otel());
 app.use("*", logger());
 
 const PUBLIC_PATHS = new Set(["/api/health", "/api/nolio/connect", "/api/nolio/callback"]);
@@ -37,14 +40,21 @@ app.use("/api/*", async (c, next) => {
   const userId = c.req.header("X-User-Id");
   if (!userId) return c.json({ error: "Missing X-User-Id header" }, 401);
 
-  const db = createDb(c.env.DB);
-  const session = await db
-    .select({ userId: nolioTokens.userId })
-    .from(nolioTokens)
-    .where(eq(nolioTokens.userId, userId))
-    .get();
+  // Only the session lookup is wrapped, not `next()` — otherwise every
+  // downstream route (coach chat, session logging, etc.) would be counted as
+  // part of the nolio_auth_and_session flow, and routes that already wrap
+  // themselves (e.g. /api/nolio/status) would get double-counted via nesting.
+  const authenticated = await withFlow("nolio_auth_and_session", async () => {
+    const db = createDb(c.env.DB);
+    const session = await db
+      .select({ userId: nolioTokens.userId })
+      .from(nolioTokens)
+      .where(eq(nolioTokens.userId, userId))
+      .get();
+    return !!session;
+  });
 
-  if (!session) return c.json({ error: "Not authenticated with Nolio" }, 401);
+  if (!authenticated) return c.json({ error: "Not authenticated with Nolio" }, 401);
 
   c.set("userId", userId);
   return next();
@@ -73,11 +83,14 @@ app.onError((err, c) => {
   return c.json({ error: err.message || "Internal server error" }, 500);
 });
 
-export default {
+export default withWorkers({
   fetch: app.fetch,
   // Cloudflare Cron Trigger (see wrangler.json) — runs the coach's periodic
   // check-in/auto-planning job for every athlete due for one.
-  scheduled(_event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
-    ctx.waitUntil(runScheduledCheckins(env));
+  // Returned (not fired-and-forgotten) so withWorkers' own ctx.waitUntil can
+  // chain telemetry flush after the check-ins actually finish, instead of
+  // flushing immediately against a void return.
+  scheduled(_event: ScheduledEvent, env: Bindings, _ctx: ExecutionContext) {
+    return runScheduledCheckins(env);
   },
-};
+});
