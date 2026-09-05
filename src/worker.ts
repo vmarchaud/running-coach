@@ -1,4 +1,6 @@
+import { withWorkers } from '../focale.instrument.mjs';
 import { Hono } from "hono";
+import { httpInstrumentationMiddleware } from "@hono/otel";
 import { logger } from "hono/logger";
 import { eq } from "drizzle-orm";
 import { createDb } from "../db";
@@ -22,6 +24,8 @@ type Bindings = {
 type Variables = { userId: string };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+
+app.use("*", httpInstrumentationMiddleware());
 
 app.use("*", logger());
 
@@ -73,11 +77,11 @@ app.onError((err, c) => {
   return c.json({ error: err.message || "Internal server error" }, 500);
 });
 
-export default {
+export default withWorkers({
   fetch: app.fetch,
   // Cloudflare Cron Trigger (see wrangler.json) — runs the coach's periodic
   // check-in/auto-planning job for every athlete due for one.
   scheduled(_event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
     ctx.waitUntil(runScheduledCheckins(env));
   },
-};
+});
