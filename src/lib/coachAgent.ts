@@ -1,3 +1,4 @@
+import { withFlow } from "../../focale.instrument.mjs";
 import { and, desc, eq } from "drizzle-orm";
 import type { Db } from "../../db";
 import { users, plannedTrainingRefs, strengthMaxes } from "../../db/schema";
@@ -307,53 +308,59 @@ async function executeTool(
       case "list_known_sports":
         return getKnownSports(token);
       case "log_completed_training":
-        return createTraining(token, input);
+        return withFlow("session_log_schedule", () => createTraining(token, input));
       case "schedule_planned_training": {
-        const result: any = await createPlannedTraining(token, input);
-        if (typeof result?.id_partner === "number") {
-          await db.insert(plannedTrainingRefs).values({
-            id: crypto.randomUUID(),
-            userId,
-            idPartner: result.id_partner,
-            dateStart: input.date_start,
-            sportId: input.sport_id,
-            name: input.name,
-          });
-        }
-        return result;
+        return withFlow("session_log_schedule", async () => {
+          const result: any = await createPlannedTraining(token, input);
+          if (typeof result?.id_partner === "number") {
+            await db.insert(plannedTrainingRefs).values({
+              id: crypto.randomUUID(),
+              userId,
+              idPartner: result.id_partner,
+              dateStart: input.date_start,
+              sportId: input.sport_id,
+              name: input.name,
+            });
+          }
+          return result;
+        });
       }
       case "update_planned_training": {
-        const ref = await findPlannedTrainingRef(db, userId, {
-          date_start: input.current_date_start,
-          sport_id: input.current_sport_id,
-          name: input.current_name,
+        return withFlow("session_log_schedule", async () => {
+          const ref = await findPlannedTrainingRef(db, userId, {
+            date_start: input.current_date_start,
+            sport_id: input.current_sport_id,
+            name: input.current_name,
+          });
+          if (!ref) {
+            throw new Error(
+              "Couldn't find a session I scheduled matching that date/sport — I can only update sessions I created myself."
+            );
+          }
+          const result: any = await updatePlannedTraining(token, ref.idPartner, input);
+          await db
+            .update(plannedTrainingRefs)
+            .set({ dateStart: input.date_start, sportId: input.sport_id, name: input.name })
+            .where(eq(plannedTrainingRefs.idPartner, ref.idPartner));
+          return result;
         });
-        if (!ref) {
-          throw new Error(
-            "Couldn't find a session I scheduled matching that date/sport — I can only update sessions I created myself."
-          );
-        }
-        const result: any = await updatePlannedTraining(token, ref.idPartner, input);
-        await db
-          .update(plannedTrainingRefs)
-          .set({ dateStart: input.date_start, sportId: input.sport_id, name: input.name })
-          .where(eq(plannedTrainingRefs.idPartner, ref.idPartner));
-        return result;
       }
       case "delete_planned_training": {
-        const ref = await findPlannedTrainingRef(db, userId, {
-          date_start: input.date_start,
-          sport_id: input.sport_id,
-          name: input.name,
+        return withFlow("session_log_schedule", async () => {
+          const ref = await findPlannedTrainingRef(db, userId, {
+            date_start: input.date_start,
+            sport_id: input.sport_id,
+            name: input.name,
+          });
+          if (!ref) {
+            throw new Error(
+              "Couldn't find a session I scheduled matching that date/sport — I can only delete sessions I created myself."
+            );
+          }
+          await deletePlannedTraining(token, ref.idPartner);
+          await db.delete(plannedTrainingRefs).where(eq(plannedTrainingRefs.idPartner, ref.idPartner));
+          return { ok: true };
         });
-        if (!ref) {
-          throw new Error(
-            "Couldn't find a session I scheduled matching that date/sport — I can only delete sessions I created myself."
-          );
-        }
-        await deletePlannedTraining(token, ref.idPartner);
-        await db.delete(plannedTrainingRefs).where(eq(plannedTrainingRefs.idPartner, ref.idPartner));
-        return { ok: true };
       }
       default:
         throw new Error(`Unknown tool: ${name}`);
