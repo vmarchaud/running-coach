@@ -1,3 +1,4 @@
+import { flowMiddleware } from '../../focale.instrument.mjs';
 import { Hono } from "hono";
 import { createDb } from "../../db";
 import {
@@ -17,6 +18,8 @@ type Bindings = { DB: D1Database; NOLIO_CLIENT_SECRET: string };
 type Variables = { userId: string };
 
 const router = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+
+router.use("*", flowMiddleware("session_logging_scheduling"));
 
 function withToken<T>(c: any, fn: (token: string) => Promise<T>): Promise<T> {
   const db = createDb(c.env.DB);

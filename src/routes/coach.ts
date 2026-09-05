@@ -1,3 +1,4 @@
+import { flowMiddleware } from '../../focale.instrument.mjs';
 import { Hono } from "hono";
 import { asc, eq } from "drizzle-orm";
 import { createDb } from "../../db";
@@ -13,6 +14,8 @@ type Bindings = {
 type Variables = { userId: string };
 
 const router = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+
+router.use("*", flowMiddleware("coach_chat_flow"));
 
 // GET /api/coach/messages — full conversation history, persisted server-side so it
 // survives a refresh and follows the athlete across devices (keyed by their
