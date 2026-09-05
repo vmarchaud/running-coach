@@ -1,4 +1,6 @@
+import { withWorkers, flowMiddleware } from '../focale.instrument.mjs';
 import { Hono } from "hono";
+import { httpInstrumentationMiddleware } from "@hono/otel";
 import { logger } from "hono/logger";
 import { eq } from "drizzle-orm";
 import { createDb } from "../db";
@@ -23,13 +25,15 @@ type Variables = { userId: string };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
+app.use("*", httpInstrumentationMiddleware());
+
 app.use("*", logger());
 
 const PUBLIC_PATHS = new Set(["/api/health", "/api/nolio/connect", "/api/nolio/callback"]);
 
 // Every API route requires a userId backed by a real Nolio session — Nolio is the
 // only sign-in mechanism, so an X-User-Id header alone is not sufficient auth.
-app.use("/api/*", async (c, next) => {
+app.use("/api/*", flowMiddleware("nolio_auth_session"), async (c, next) => {
   if (PUBLIC_PATHS.has(c.req.path)) {
     return next();
   }
@@ -73,11 +77,11 @@ app.onError((err, c) => {
   return c.json({ error: err.message || "Internal server error" }, 500);
 });
 
-export default {
+export default withWorkers({
   fetch: app.fetch,
   // Cloudflare Cron Trigger (see wrangler.json) — runs the coach's periodic
   // check-in/auto-planning job for every athlete due for one.
   scheduled(_event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
     ctx.waitUntil(runScheduledCheckins(env));
   },
-};
+});
