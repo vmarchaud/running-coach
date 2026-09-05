@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
+import { httpInstrumentationMiddleware } from "@hono/otel";
 import { eq } from "drizzle-orm";
 import { createDb } from "../db";
 import { nolioTokens } from "../db/schema";
@@ -10,6 +11,7 @@ import coachRouter from "./routes/coach";
 import notificationsRouter from "./routes/notifications";
 import { runScheduledCheckins } from "./lib/checkin";
 import { NolioApiError } from "./lib/nolioApi";
+import { withWorkers } from "../focale.instrument.mjs";
 
 type Bindings = {
   ASSETS: Fetcher;
@@ -23,6 +25,7 @@ type Variables = { userId: string };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
+app.use("*", httpInstrumentationMiddleware());
 app.use("*", logger());
 
 const PUBLIC_PATHS = new Set(["/api/health", "/api/nolio/connect", "/api/nolio/callback"]);
@@ -73,11 +76,15 @@ app.onError((err, c) => {
   return c.json({ error: err.message || "Internal server error" }, 500);
 });
 
-export default {
+export default withWorkers({
   fetch: app.fetch,
   // Cloudflare Cron Trigger (see wrangler.json) — runs the coach's periodic
   // check-in/auto-planning job for every athlete due for one.
   scheduled(_event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
-    ctx.waitUntil(runScheduledCheckins(env));
+    const work = runScheduledCheckins(env);
+    ctx.waitUntil(work);
+    // Return the promise so withWorkers flushes telemetry only after the
+    // check-in work has actually finished, not when this handler returns.
+    return work;
   },
-};
+});
