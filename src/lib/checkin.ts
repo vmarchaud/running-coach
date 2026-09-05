@@ -1,3 +1,4 @@
+import { withFlow } from "../../focale.instrument.mjs";
 import { and, asc, eq, isNull, lt, or } from "drizzle-orm";
 import { createDb, type Db } from "../../db";
 import { users, nolioTokens, coachMessages, pushSubscriptions } from "../../db/schema";
@@ -39,6 +40,12 @@ interface CheckinEnv {
 }
 
 export async function runScheduledCheckins(env: CheckinEnv): Promise<void> {
+  return withFlow("coach_agent_and_checkins", async () => {
+    await doRunScheduledCheckins(env);
+  });
+}
+
+async function doRunScheduledCheckins(env: CheckinEnv): Promise<void> {
   const db = createDb(env.DB);
   const cutoff = new Date(Date.now() - CHECKIN_INTERVAL_HOURS * 60 * 60 * 1000).toISOString();
 
