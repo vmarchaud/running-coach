@@ -1,3 +1,4 @@
+import { flowMiddleware } from '../../focale.instrument.mjs';
 import { Hono } from "hono";
 import { asc, eq } from "drizzle-orm";
 import { createDb } from "../../db";
@@ -48,7 +49,7 @@ router.delete("/messages", async (c) => {
 // appends the new user message, runs the agent, and persists every message
 // produced this turn (including tool_use/tool_result blocks the agent needs for
 // context on the next call).
-router.post("/chat", async (c) => {
+router.post("/chat", flowMiddleware("coach_agent_and_checkins"),  flowMiddleware("coach_agent_and_checkins"),  flowMiddleware("coach_agent_and_checkins"), async (c) => {
   const userId = c.get("userId");
   const body = await c.req.json<{ message: string }>();
 
