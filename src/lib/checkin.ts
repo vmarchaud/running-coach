@@ -1,3 +1,4 @@
+import { withFlow } from "../../focale.instrument.mjs";
 import { and, asc, eq, isNull, lt, or } from "drizzle-orm";
 import { createDb, type Db } from "../../db";
 import { users, nolioTokens, coachMessages, pushSubscriptions } from "../../db/schema";
@@ -39,26 +40,28 @@ interface CheckinEnv {
 }
 
 export async function runScheduledCheckins(env: CheckinEnv): Promise<void> {
-  const db = createDb(env.DB);
-  const cutoff = new Date(Date.now() - CHECKIN_INTERVAL_HOURS * 60 * 60 * 1000).toISOString();
-
-  const candidates = await db
-    .select()
-    .from(users)
-    .where(or(isNull(users.lastCheckinAt), lt(users.lastCheckinAt, cutoff)))
-    .all();
-
-  for (const user of candidates) {
-    const connected = await db.select().from(nolioTokens).where(eq(nolioTokens.userId, user.id)).get();
-    if (!connected) continue; // nothing to check in on without a live Nolio session
-
-    try {
-      await checkinForUser(db, user.id, env);
-    } catch {
-      // One athlete's failure (Nolio token expired, model error, etc.)
-      // shouldn't block check-ins for everyone else.
+  return withFlow("coach_agent_and_checkins", async () => {
+    const db = createDb(env.DB);
+    const cutoff = new Date(Date.now() - CHECKIN_INTERVAL_HOURS * 60 * 60 * 1000).toISOString();
+  
+    const candidates = await db
+      .select()
+      .from(users)
+      .where(or(isNull(users.lastCheckinAt), lt(users.lastCheckinAt, cutoff)))
+      .all();
+  
+    for (const user of candidates) {
+      const connected = await db.select().from(nolioTokens).where(eq(nolioTokens.userId, user.id)).get();
+      if (!connected) continue; // nothing to check in on without a live Nolio session
+  
+      try {
+        await checkinForUser(db, user.id, env);
+      } catch {
+        // One athlete's failure (Nolio token expired, model error, etc.)
+        // shouldn't block check-ins for everyone else.
+      }
     }
-  }
+  });
 }
 
 async function checkinForUser(db: Db, userId: string, env: CheckinEnv): Promise<void> {

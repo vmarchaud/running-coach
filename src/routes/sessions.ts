@@ -1,3 +1,4 @@
+import { flowMiddleware } from "../../focale.instrument.mjs";
 import { Hono } from "hono";
 import { createDb } from "../../db";
 import {
@@ -141,7 +142,7 @@ router.get("/:id", async (c) => {
 });
 
 // POST /api/sessions/log — record a completed training.
-router.post("/log", async (c) => {
+router.post("/log", flowMiddleware("session_logging_and_planning"), async (c) => {
   const body = await c.req.json<{
     name: string;
     sportId: number;
@@ -172,7 +173,7 @@ router.post("/log", async (c) => {
 });
 
 // POST /api/sessions/schedule — create a planned training.
-router.post("/schedule", async (c) => {
+router.post("/schedule", flowMiddleware("session_logging_and_planning"), async (c) => {
   const body = await c.req.json<{
     name: string;
     sportId: number;
