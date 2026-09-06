@@ -4,6 +4,7 @@ import { createDb } from "../../db";
 import { coachMessages } from "../../db/schema";
 import { runCoachAgent } from "../lib/coachAgent";
 import type { ClaudeMessage } from "../lib/claude";
+import { withFlow } from "../../focale.instrument.mjs";
 
 type Bindings = {
   DB: D1Database;
@@ -82,30 +83,32 @@ router.post("/chat", async (c) => {
 
   (async () => {
     try {
-      const { reply, messages } = await runCoachAgent(
-        db,
-        userId,
-        c.env.NOLIO_CLIENT_SECRET,
-        c.env.NVIDIA_API_KEY,
-        withUserMessage,
-        (event) => send(event)
-      );
-
-      const newMessages = messages.slice(history.length);
-      if (newMessages.length > 0) {
-        await db.batch(
-          newMessages.map((m) =>
-            db.insert(coachMessages).values({
-              id: crypto.randomUUID(),
-              userId,
-              role: m.role,
-              content: JSON.stringify(m.content),
-            })
-          ) as any
+      await withFlow("coach_chat_stream", async () => {
+        const { reply, messages } = await runCoachAgent(
+          db,
+          userId,
+          c.env.NOLIO_CLIENT_SECRET,
+          c.env.NVIDIA_API_KEY,
+          withUserMessage,
+          (event) => send(event)
         );
-      }
 
-      await send({ type: "done", reply, messages });
+        const newMessages = messages.slice(history.length);
+        if (newMessages.length > 0) {
+          await db.batch(
+            newMessages.map((m) =>
+              db.insert(coachMessages).values({
+                id: crypto.randomUUID(),
+                userId,
+                role: m.role,
+                content: JSON.stringify(m.content),
+              })
+            ) as any
+          );
+        }
+
+        await send({ type: "done", reply, messages });
+      });
     } catch (e: any) {
       await send({ type: "error", error: e.message ?? "Coach agent failed" });
     } finally {
