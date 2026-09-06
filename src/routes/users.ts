@@ -52,7 +52,7 @@ async function pushRaceGoalToNolio(
 }
 
 router.post("/", async (c) => {
-  const body = await c.req.json<{
+    const body = await c.req.json<{
     id: string;
     name: string;
     fitnessLevel: string;
@@ -77,10 +77,11 @@ router.post("/", async (c) => {
     targetTimeMinutes: body.targetTimeMinutes ?? null,
   });
 
-  await pushRaceGoalToNolio(db, body.id, c.env.NOLIO_CLIENT_SECRET, body);
+    await pushRaceGoalToNolio(db, body.id, c.env.NOLIO_CLIENT_SECRET, body);
 
-  return c.json({ user: body });
-});
+    return c.json({ user: body });
+  })
+);
 
 router.get("/me", async (c) => {
   const userId = c.get("userId");

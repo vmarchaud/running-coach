@@ -4,6 +4,7 @@ import { createDb } from "../../db";
 import { coachMessages } from "../../db/schema";
 import { runCoachAgent } from "../lib/coachAgent";
 import type { ClaudeMessage } from "../lib/claude";
+import { withFlow } from "../focale.instrument.mjs";
 
 type Bindings = {
   DB: D1Database;
@@ -82,28 +83,36 @@ router.post("/chat", async (c) => {
 
   (async () => {
     try {
-      const { reply, messages } = await runCoachAgent(
-        db,
-        userId,
-        c.env.NOLIO_CLIENT_SECRET,
-        c.env.NVIDIA_API_KEY,
-        withUserMessage,
-        (event) => send(event)
-      );
-
-      const newMessages = messages.slice(history.length);
-      if (newMessages.length > 0) {
-        await db.batch(
-          newMessages.map((m) =>
-            db.insert(coachMessages).values({
-              id: crypto.randomUUID(),
-              userId,
-              role: m.role,
-              content: JSON.stringify(m.content),
-            })
-          ) as any
+      // The flow wraps the agent run + persistence, not the stream setup: the
+      // reply ships as an NDJSON stream, so the handler returns before the agent
+      // finishes. Keeping withFlow around the actual tool calls means the span
+      // and error recording actually cover the coach work.
+      const { reply, messages } = await withFlow("coach_agent_and_checkins", async () => {
+        const turn = await runCoachAgent(
+          db,
+          userId,
+          c.env.NOLIO_CLIENT_SECRET,
+          c.env.NVIDIA_API_KEY,
+          withUserMessage,
+          (event) => send(event)
         );
-      }
+
+        const newMessages = turn.messages.slice(history.length);
+        if (newMessages.length > 0) {
+          await db.batch(
+            newMessages.map((m) =>
+              db.insert(coachMessages).values({
+                id: crypto.randomUUID(),
+                userId,
+                role: m.role,
+                content: JSON.stringify(m.content),
+              })
+            ) as any
+          );
+        }
+
+        return turn;
+      });
 
       await send({ type: "done", reply, messages });
     } catch (e: any) {

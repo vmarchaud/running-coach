@@ -12,6 +12,7 @@ import {
 import { withNolioToken } from "../lib/nolioSession";
 import { mapNolioTraining, isFulfilledBy, Session } from "../lib/sessionMapper";
 import { addDays, isoDate, weekMondayFromDate } from "../lib/dateUtils";
+import { withFlow } from "../focale.instrument.mjs";
 
 type Bindings = { DB: D1Database; NOLIO_CLIENT_SECRET: string };
 type Variables = { userId: string };
@@ -25,69 +26,73 @@ function withToken<T>(c: any, fn: (token: string) => Promise<T>): Promise<T> {
 
 // GET /api/sessions/week?weekStart=YYYY-MM-DD — planned + completed sessions for
 // the week containing weekStart (any day in that week works; defaults to today).
-router.get("/week", async (c) => {
-  const weekStartParam = c.req.query("weekStart");
-  const anchor = weekStartParam ? new Date(weekStartParam + "T00:00:00") : new Date();
-  const monday = weekMondayFromDate(anchor);
-  const sunday = addDays(monday, 6);
-  const from = isoDate(monday);
-  const to = isoDate(sunday);
+router.get("/week", async (c) =>
+  withFlow("session_logging_and_planning", async () => {
+    const weekStartParam = c.req.query("weekStart");
+    const anchor = weekStartParam ? new Date(weekStartParam + "T00:00:00") : new Date();
+    const monday = weekMondayFromDate(anchor);
+    const sunday = addDays(monday, 6);
+    const from = isoDate(monday);
+    const to = isoDate(sunday);
 
-  const { planned: allPlanned, completed } = await withToken(c, async (token) => {
-    const [plannedRaw, completedRaw] = await Promise.all([
-      getPlannedTrainings(token, { from, to, limit: 50 }),
-      getTrainings(token, { from, to, limit: 50 }),
-    ]);
-    return {
-      planned: (plannedRaw as any[]).map((t) => mapNolioTraining(t, false)),
-      completed: (completedRaw as any[]).map((t) => mapNolioTraining(t, true)),
-    };
-  });
+    const { planned: allPlanned, completed } = await withToken(c, async (token) => {
+      const [plannedRaw, completedRaw] = await Promise.all([
+        getPlannedTrainings(token, { from, to, limit: 50 }),
+        getTrainings(token, { from, to, limit: 50 }),
+      ]);
+      return {
+        planned: (plannedRaw as any[]).map((t) => mapNolioTraining(t, false)),
+        completed: (completedRaw as any[]).map((t) => mapNolioTraining(t, true)),
+      };
+    });
 
-  // Drop planned sessions already fulfilled by a synced-in completed training
-  // (e.g. run on Coros, auto-uploaded to Nolio) so they don't show twice.
-  const planned = allPlanned.filter((p) => !completed.some((done) => isFulfilledBy(p, done)));
+    // Drop planned sessions already fulfilled by a synced-in completed training
+    // (e.g. run on Coros, auto-uploaded to Nolio) so they don't show twice.
+    const planned = allPlanned.filter((p) => !completed.some((done) => isFulfilledBy(p, done)));
 
-  const weeklyTargetKm = allPlanned.reduce((s, x) => s + (x.distance ?? 0), 0);
-  const weeklyActualKm = completed.reduce((s, x) => s + (x.distance ?? 0), 0);
+    const weeklyTargetKm = allPlanned.reduce((s, x) => s + (x.distance ?? 0), 0);
+    const weeklyActualKm = completed.reduce((s, x) => s + (x.distance ?? 0), 0);
 
-  return c.json({
-    weekStart: from,
-    weekEnd: to,
-    planned,
-    completed,
-    weeklyTargetKm: Math.round(weeklyTargetKm * 10) / 10,
-    weeklyActualKm: Math.round(weeklyActualKm * 10) / 10,
-  });
-});
+    return c.json({
+      weekStart: from,
+      weekEnd: to,
+      planned,
+      completed,
+      weeklyTargetKm: Math.round(weeklyTargetKm * 10) / 10,
+      weeklyActualKm: Math.round(weeklyActualKm * 10) / 10,
+    });
+  })
+);
 
 // GET /api/sessions/plan — upcoming planned sessions grouped by week (Monday date key).
-router.get("/plan", async (c) => {
-  const today = new Date();
-  const from = isoDate(today);
-  const to = isoDate(addDays(today, 16 * 7)); // 16-week horizon
+router.get("/plan", async (c) =>
+  withFlow("session_logging_and_planning", async () => {
+    const today = new Date();
+    const from = isoDate(today);
+    const to = isoDate(addDays(today, 16 * 7)); // 16-week horizon
 
-  const allPlanned = await withToken(c, async (token) => {
-    const [plannedRaw, completedRaw] = await Promise.all([
-      getPlannedTrainings(token, { from, to, limit: 200 }),
-      getTrainings(token, { from, to: isoDate(today), limit: 50 }),
-    ]);
-    const planned = (plannedRaw as any[]).map((t) => mapNolioTraining(t, false));
-    const completed = (completedRaw as any[]).map((t) => mapNolioTraining(t, true));
-    return planned.filter((p) => !completed.some((done) => isFulfilledBy(p, done)));
-  });
+    const allPlanned = await withToken(c, async (token) => {
+      const [plannedRaw, completedRaw] = await Promise.all([
+        getPlannedTrainings(token, { from, to, limit: 200 }),
+        getTrainings(token, { from, to: isoDate(today), limit: 50 }),
+      ]);
+      const planned = (plannedRaw as any[]).map((t) => mapNolioTraining(t, false));
+      const completed = (completedRaw as any[]).map((t) => mapNolioTraining(t, true));
+      return planned.filter((p) => !completed.some((done) => isFulfilledBy(p, done)));
+    });
 
-  const planned = allPlanned.sort((a, b) => a.dateStart.localeCompare(b.dateStart));
+    const planned = allPlanned.sort((a, b) => a.dateStart.localeCompare(b.dateStart));
 
-  const byWeek: Record<string, Session[]> = {};
-  for (const s of planned) {
-    const weekStart = isoDate(weekMondayFromDate(new Date(s.dateStart + "T00:00:00")));
-    if (!byWeek[weekStart]) byWeek[weekStart] = [];
-    byWeek[weekStart].push(s);
-  }
+    const byWeek: Record<string, Session[]> = {};
+    for (const s of planned) {
+      const weekStart = isoDate(weekMondayFromDate(new Date(s.dateStart + "T00:00:00")));
+      if (!byWeek[weekStart]) byWeek[weekStart] = [];
+      byWeek[weekStart].push(s);
+    }
 
-  return c.json({ byWeek });
-});
+    return c.json({ byWeek });
+  })
+);
 
 // GET /api/sessions/history?before=YYYY-MM-DD&limit=20 — completed sessions, most recent first.
 // Nolio's API only supports a date-range cursor (no offset), so pagination walks
@@ -141,63 +146,67 @@ router.get("/:id", async (c) => {
 });
 
 // POST /api/sessions/log — record a completed training.
-router.post("/log", async (c) => {
-  const body = await c.req.json<{
-    name: string;
-    sportId: number;
-    dateStart: string;
-    duration?: number;
-    distance?: number;
-    elevationGain?: number;
-    description?: string;
-    rpe?: number;
-    feeling?: number;
-  }>();
+router.post("/log", async (c) =>
+  withFlow("session_logging_and_planning", async () => {
+    const body = await c.req.json<{
+      name: string;
+      sportId: number;
+      dateStart: string;
+      duration?: number;
+      distance?: number;
+      elevationGain?: number;
+      description?: string;
+      rpe?: number;
+      feeling?: number;
+    }>();
 
-  const result = await withToken(c, (token) =>
-    createTraining(token, {
-      sport_id: body.sportId,
-      name: body.name,
-      date_start: body.dateStart,
-      duration: body.duration,
-      distance: body.distance,
-      elevation_gain: body.elevationGain,
-      description: body.description,
-      rpe: body.rpe,
-      feeling: body.feeling,
-    })
-  );
+    const result = await withToken(c, (token) =>
+      createTraining(token, {
+        sport_id: body.sportId,
+        name: body.name,
+        date_start: body.dateStart,
+        duration: body.duration,
+        distance: body.distance,
+        elevation_gain: body.elevationGain,
+        description: body.description,
+        rpe: body.rpe,
+        feeling: body.feeling,
+      })
+    );
 
-  return c.json(result, 201);
-});
+    return c.json(result, 201);
+  })
+);
 
 // POST /api/sessions/schedule — create a planned training.
-router.post("/schedule", async (c) => {
-  const body = await c.req.json<{
-    name: string;
-    sportId: number;
-    dateStart: string;
-    duration?: number;
-    distance?: number;
-    elevationGain?: number;
-    description?: string;
-    rpe?: number;
-  }>();
+router.post("/schedule", async (c) =>
+  withFlow("session_logging_and_planning", async () => {
+    const body = await c.req.json<{
+      name: string;
+      sportId: number;
+      dateStart: string;
+      duration?: number;
+      distance?: number;
+      elevationGain?: number;
+      description?: string;
+      rpe?: number;
+    }>();
 
-  const result = await withToken(c, (token) =>
-    createPlannedTraining(token, {
-      sport_id: body.sportId,
-      name: body.name,
-      date_start: body.dateStart,
-      duration: body.duration,
-      distance: body.distance,
-      elevation_gain: body.elevationGain,
-      description: body.description,
-      rpe: body.rpe,
-    })
-  );
+    const result = await withToken(c, (token) =>
+      createPlannedTraining(token, {
+        sport_id: body.sportId,
+        name: body.name,
+        date_start: body.dateStart,
+        duration: body.duration,
+        distance: body.distance,
+        elevation_gain: body.elevationGain,
+        description: body.description,
+        rpe: body.rpe,
+      })
+    );
 
-  return c.json(result, 201);
-});
+    return c.json(result, 201);
+  })
+);
 
 export default router;
