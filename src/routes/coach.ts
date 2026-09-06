@@ -4,6 +4,7 @@ import { createDb } from "../../db";
 import { coachMessages } from "../../db/schema";
 import { runCoachAgent } from "../lib/coachAgent";
 import type { ClaudeMessage } from "../lib/claude";
+import { withFlow } from "../../focale.instrument.mjs";
 
 type Bindings = {
   DB: D1Database;
@@ -17,7 +18,7 @@ const router = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 // GET /api/coach/messages — full conversation history, persisted server-side so it
 // survives a refresh and follows the athlete across devices (keyed by their
 // Nolio-authenticated userId, not a per-browser localStorage entry).
-router.get("/messages", async (c) => {
+router.get("/messages", async (c) => withFlow("coach_agent_and_checkins", async () => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
 
@@ -34,15 +35,15 @@ router.get("/messages", async (c) => {
   }));
 
   return c.json({ messages });
-});
+}));
 
 // DELETE /api/coach/messages — clear the conversation and start fresh.
-router.delete("/messages", async (c) => {
+router.delete("/messages", async (c) => withFlow("coach_agent_and_checkins", async () => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
   await db.delete(coachMessages).where(eq(coachMessages.userId, userId));
   return c.json({ ok: true });
-});
+}));
 
 // POST /api/coach/chat — body: { message: string }. Server loads prior history,
 // appends the new user message, runs the agent, and persists every message
@@ -82,30 +83,32 @@ router.post("/chat", async (c) => {
 
   (async () => {
     try {
-      const { reply, messages } = await runCoachAgent(
-        db,
-        userId,
-        c.env.NOLIO_CLIENT_SECRET,
-        c.env.NVIDIA_API_KEY,
-        withUserMessage,
-        (event) => send(event)
-      );
-
-      const newMessages = messages.slice(history.length);
-      if (newMessages.length > 0) {
-        await db.batch(
-          newMessages.map((m) =>
-            db.insert(coachMessages).values({
-              id: crypto.randomUUID(),
-              userId,
-              role: m.role,
-              content: JSON.stringify(m.content),
-            })
-          ) as any
+      await withFlow("coach_agent_and_checkins", async () => {
+        const { reply, messages } = await runCoachAgent(
+          db,
+          userId,
+          c.env.NOLIO_CLIENT_SECRET,
+          c.env.NVIDIA_API_KEY,
+          withUserMessage,
+          (event) => send(event)
         );
-      }
 
-      await send({ type: "done", reply, messages });
+        const newMessages = messages.slice(history.length);
+        if (newMessages.length > 0) {
+          await db.batch(
+            newMessages.map((m) =>
+              db.insert(coachMessages).values({
+                id: crypto.randomUUID(),
+                userId,
+                role: m.role,
+                content: JSON.stringify(m.content),
+              })
+            ) as any
+          );
+        }
+
+        await send({ type: "done", reply, messages });
+      });
     } catch (e: any) {
       await send({ type: "error", error: e.message ?? "Coach agent failed" });
     } finally {

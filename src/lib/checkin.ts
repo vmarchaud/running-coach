@@ -4,6 +4,7 @@ import { users, nolioTokens, coachMessages, pushSubscriptions } from "../../db/s
 import { runCoachAgent } from "./coachAgent";
 import { sendPushNotification } from "./webPush";
 import type { ClaudeMessage } from "./claude";
+import { withFlow } from "../../focale.instrument.mjs";
 
 // Cron runs daily; this gate keeps the actual per-athlete cadence at roughly
 // every 2-3 days rather than every single run.
@@ -38,7 +39,8 @@ interface CheckinEnv {
   VAPID_PRIVATE_KEY: string;
 }
 
-export async function runScheduledCheckins(env: CheckinEnv): Promise<void> {
+export function runScheduledCheckins(env: CheckinEnv): Promise<void> {
+  return withFlow("coach_agent_and_checkins", async () => {
   const db = createDb(env.DB);
   const cutoff = new Date(Date.now() - CHECKIN_INTERVAL_HOURS * 60 * 60 * 1000).toISOString();
 
@@ -59,6 +61,7 @@ export async function runScheduledCheckins(env: CheckinEnv): Promise<void> {
       // shouldn't block check-ins for everyone else.
     }
   }
+  });
 }
 
 async function checkinForUser(db: Db, userId: string, env: CheckinEnv): Promise<void> {

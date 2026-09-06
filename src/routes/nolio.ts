@@ -8,6 +8,7 @@ import {
   refreshTokens,
   getNolioUser,
 } from "../lib/nolioClient";
+import { withFlow } from "../../focale.instrument.mjs";
 
 type Bindings = { DB: D1Database; NOLIO_CLIENT_SECRET: string; NOLIO_REDIRECT_URI: string };
 type Variables = { userId: string };
@@ -19,15 +20,15 @@ export function nolioUserIdFor(nolioId: string | number): string {
 }
 
 // GET /api/nolio/connect — full-page redirect to Nolio OAuth. This IS the login entry point.
-router.get("/connect", async (c) => {
+router.get("/connect", async (c) => withFlow("nolio_auth_and_session", async () => {
   const state = crypto.randomUUID();
   const url = buildAuthorizeUrl(c.env.NOLIO_REDIRECT_URI, state);
   return c.redirect(url);
-});
+}));
 
 // GET /api/nolio/callback — Nolio redirects here after the user authorizes.
 // This is the only sign-in path: the Nolio account IS the app identity.
-router.get("/callback", async (c) => {
+router.get("/callback", async (c) => withFlow("nolio_auth_and_session", async () => {
   const code = c.req.query("code");
   const error = c.req.query("error");
 
@@ -63,10 +64,10 @@ router.get("/callback", async (c) => {
     });
 
   return c.redirect(`/?nolioUserId=${encodeURIComponent(userId)}`);
-});
+}));
 
 // GET /api/nolio/status — returns connection status + Nolio profile for the current user.
-router.get("/status", async (c) => {
+router.get("/status", async (c) => withFlow("nolio_auth_and_session", async () => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
 
@@ -118,14 +119,14 @@ router.get("/status", async (c) => {
       return c.json({ connected: false, reason: "token_expired" });
     }
   }
-});
+}));
 
 // DELETE /api/nolio/disconnect — sign out. Removes the stored Nolio session for this user.
-router.delete("/disconnect", async (c) => {
+router.delete("/disconnect", async (c) => withFlow("nolio_auth_and_session", async () => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
   await db.delete(nolioTokens).where(eq(nolioTokens.userId, userId));
   return c.json({ ok: true });
-});
+}));
 
 export default router;
