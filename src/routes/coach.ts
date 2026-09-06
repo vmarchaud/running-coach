@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { asc, eq } from "drizzle-orm";
+import { withFlow } from "../../focale.instrument.mjs";
 import { createDb } from "../../db";
 import { coachMessages } from "../../db/schema";
 import { runCoachAgent } from "../lib/coachAgent";
@@ -17,46 +18,51 @@ const router = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 // GET /api/coach/messages — full conversation history, persisted server-side so it
 // survives a refresh and follows the athlete across devices (keyed by their
 // Nolio-authenticated userId, not a per-browser localStorage entry).
-router.get("/messages", async (c) => {
-  const userId = c.get("userId");
-  const db = createDb(c.env.DB);
+router.get("/messages", async (c) =>
+  withFlow("coach_agent_and_checkins", async () => {
+    const userId = c.get("userId");
+    const db = createDb(c.env.DB);
 
-  const rows = await db
-    .select()
-    .from(coachMessages)
-    .where(eq(coachMessages.userId, userId))
-    .orderBy(asc(coachMessages.createdAt))
-    .all();
+    const rows = await db
+      .select()
+      .from(coachMessages)
+      .where(eq(coachMessages.userId, userId))
+      .orderBy(asc(coachMessages.createdAt))
+      .all();
 
-  const messages: ClaudeMessage[] = rows.map((r) => ({
-    role: r.role as "user" | "assistant",
-    content: JSON.parse(r.content),
-  }));
+    const messages: ClaudeMessage[] = rows.map((r) => ({
+      role: r.role as "user" | "assistant",
+      content: JSON.parse(r.content),
+    }));
 
-  return c.json({ messages });
-});
+    return c.json({ messages });
+  })
+);
 
 // DELETE /api/coach/messages — clear the conversation and start fresh.
-router.delete("/messages", async (c) => {
-  const userId = c.get("userId");
-  const db = createDb(c.env.DB);
-  await db.delete(coachMessages).where(eq(coachMessages.userId, userId));
-  return c.json({ ok: true });
-});
+router.delete("/messages", async (c) =>
+  withFlow("coach_agent_and_checkins", async () => {
+    const userId = c.get("userId");
+    const db = createDb(c.env.DB);
+    await db.delete(coachMessages).where(eq(coachMessages.userId, userId));
+    return c.json({ ok: true });
+  })
+);
 
 // POST /api/coach/chat — body: { message: string }. Server loads prior history,
 // appends the new user message, runs the agent, and persists every message
 // produced this turn (including tool_use/tool_result blocks the agent needs for
 // context on the next call).
-router.post("/chat", async (c) => {
-  const userId = c.get("userId");
-  const body = await c.req.json<{ message: string }>();
+router.post("/chat", async (c) =>
+  withFlow("coach_agent_and_checkins", async () => {
+    const userId = c.get("userId");
+    const body = await c.req.json<{ message: string }>();
 
-  if (!body.message || !body.message.trim()) {
-    return c.json({ error: "message is required" }, 400);
-  }
+    if (!body.message || !body.message.trim()) {
+      return c.json({ error: "message is required" }, 400);
+    }
 
-  const db = createDb(c.env.DB);
+    const db = createDb(c.env.DB);
 
   const rows = await db
     .select()
@@ -113,9 +119,10 @@ router.post("/chat", async (c) => {
     }
   })();
 
-  return new Response(readable, {
-    headers: { "Content-Type": "application/x-ndjson; charset=utf-8" },
-  });
-});
+    return new Response(readable, {
+      headers: { "Content-Type": "application/x-ndjson; charset=utf-8" },
+    });
+  })
+);
 
 export default router;

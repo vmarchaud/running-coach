@@ -52,44 +52,44 @@ async function pushRaceGoalToNolio(
 }
 
 router.post("/", async (c) => {
-  const body = await c.req.json<{
-    id: string;
-    name: string;
-    fitnessLevel: string;
-    daysPerWeek: number;
-    raceDate: string;
-    targetTimeMinutes?: number | null;
-  }>();
+    const body = await c.req.json<{
+      id: string;
+      name: string;
+      fitnessLevel: string;
+      daysPerWeek: number;
+      raceDate: string;
+      targetTimeMinutes?: number | null;
+    }>();
 
-  const db = createDb(c.env.DB);
+    const db = createDb(c.env.DB);
 
-  const existing = await db.select().from(users).where(eq(users.id, body.id)).get();
-  if (existing) {
-    return c.json({ error: "User already exists" }, 409);
-  }
+    const existing = await db.select().from(users).where(eq(users.id, body.id)).get();
+    if (existing) {
+      return c.json({ error: "User already exists" }, 409);
+    }
 
-  await db.insert(users).values({
-    id: body.id,
-    name: body.name,
-    fitnessLevel: body.fitnessLevel,
-    daysPerWeek: body.daysPerWeek,
-    raceDate: body.raceDate,
-    targetTimeMinutes: body.targetTimeMinutes ?? null,
-  });
+    await db.insert(users).values({
+      id: body.id,
+      name: body.name,
+      fitnessLevel: body.fitnessLevel,
+      daysPerWeek: body.daysPerWeek,
+      raceDate: body.raceDate,
+      targetTimeMinutes: body.targetTimeMinutes ?? null,
+    });
 
-  await pushRaceGoalToNolio(db, body.id, c.env.NOLIO_CLIENT_SECRET, body);
+    await pushRaceGoalToNolio(db, body.id, c.env.NOLIO_CLIENT_SECRET, body);
 
-  return c.json({ user: body });
+    return c.json({ user: body });
 });
 
 router.get("/me", async (c) => {
-  const userId = c.get("userId");
-  const db = createDb(c.env.DB);
+    const userId = c.get("userId");
+    const db = createDb(c.env.DB);
 
-  const user = await db.select().from(users).where(eq(users.id, userId)).get();
-  if (!user) return c.json({ error: "Not found" }, 404);
+    const user = await db.select().from(users).where(eq(users.id, userId)).get();
+    if (!user) return c.json({ error: "Not found" }, 404);
 
-  return c.json({ user });
+    return c.json({ user });
 });
 
 // GET /api/users/strength-maxes — the athlete's saved 1RMs, set in Settings.
