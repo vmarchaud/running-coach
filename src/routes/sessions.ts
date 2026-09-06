@@ -12,7 +12,7 @@ import {
 import { withNolioToken } from "../lib/nolioSession";
 import { mapNolioTraining, isFulfilledBy, Session } from "../lib/sessionMapper";
 import { addDays, isoDate, weekMondayFromDate } from "../lib/dateUtils";
-import { withFlow } from "../focale.instrument.mjs";
+import { withFlow } from "../../focale.instrument.mjs";
 
 type Bindings = { DB: D1Database; NOLIO_CLIENT_SECRET: string };
 type Variables = { userId: string };

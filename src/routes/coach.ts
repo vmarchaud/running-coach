@@ -4,7 +4,7 @@ import { createDb } from "../../db";
 import { coachMessages } from "../../db/schema";
 import { runCoachAgent } from "../lib/coachAgent";
 import type { ClaudeMessage } from "../lib/claude";
-import { withFlow } from "../focale.instrument.mjs";
+import { withFlow } from "../../focale.instrument.mjs";
 
 type Bindings = {
   DB: D1Database;

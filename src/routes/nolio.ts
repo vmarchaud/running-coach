@@ -8,7 +8,7 @@ import {
   refreshTokens,
   getNolioUser,
 } from "../lib/nolioClient";
-import { withFlow } from "../focale.instrument.mjs";
+import { withFlow } from "../../focale.instrument.mjs";
 
 type Bindings = { DB: D1Database; NOLIO_CLIENT_SECRET: string; NOLIO_REDIRECT_URI: string };
 type Variables = { userId: string };

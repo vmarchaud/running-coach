@@ -4,7 +4,7 @@ import { users, nolioTokens, coachMessages, pushSubscriptions } from "../../db/s
 import { runCoachAgent } from "./coachAgent";
 import { sendPushNotification } from "./webPush";
 import type { ClaudeMessage } from "./claude";
-import { withFlow } from "../focale.instrument.mjs";
+import { withFlow } from "../../focale.instrument.mjs";
 
 // Cron runs daily; this gate keeps the actual per-athlete cadence at roughly
 // every 2-3 days rather than every single run.
