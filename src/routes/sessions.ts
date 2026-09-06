@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { withFlow } from "../../focale.instrument.mjs";
 import { createDb } from "../../db";
 import {
   getTrainings,
@@ -25,7 +26,7 @@ function withToken<T>(c: any, fn: (token: string) => Promise<T>): Promise<T> {
 
 // GET /api/sessions/week?weekStart=YYYY-MM-DD — planned + completed sessions for
 // the week containing weekStart (any day in that week works; defaults to today).
-router.get("/week", async (c) => {
+router.get("/week", withFlow("session_logging_and_planning", async (c) => {
   const weekStartParam = c.req.query("weekStart");
   const anchor = weekStartParam ? new Date(weekStartParam + "T00:00:00") : new Date();
   const monday = weekMondayFromDate(anchor);
@@ -59,10 +60,10 @@ router.get("/week", async (c) => {
     weeklyTargetKm: Math.round(weeklyTargetKm * 10) / 10,
     weeklyActualKm: Math.round(weeklyActualKm * 10) / 10,
   });
-});
+}));
 
 // GET /api/sessions/plan — upcoming planned sessions grouped by week (Monday date key).
-router.get("/plan", async (c) => {
+router.get("/plan", withFlow("session_logging_and_planning", async (c) => {
   const today = new Date();
   const from = isoDate(today);
   const to = isoDate(addDays(today, 16 * 7)); // 16-week horizon
@@ -87,7 +88,7 @@ router.get("/plan", async (c) => {
   }
 
   return c.json({ byWeek });
-});
+}));
 
 // GET /api/sessions/history?before=YYYY-MM-DD&limit=20 — completed sessions, most recent first.
 // Nolio's API only supports a date-range cursor (no offset), so pagination walks
@@ -141,7 +142,7 @@ router.get("/:id", async (c) => {
 });
 
 // POST /api/sessions/log — record a completed training.
-router.post("/log", async (c) => {
+router.post("/log", withFlow("session_logging_and_planning", async (c) => {
   const body = await c.req.json<{
     name: string;
     sportId: number;
@@ -169,10 +170,10 @@ router.post("/log", async (c) => {
   );
 
   return c.json(result, 201);
-});
+}));
 
 // POST /api/sessions/schedule — create a planned training.
-router.post("/schedule", async (c) => {
+router.post("/schedule", withFlow("session_logging_and_planning", async (c) => {
   const body = await c.req.json<{
     name: string;
     sportId: number;
@@ -198,6 +199,6 @@ router.post("/schedule", async (c) => {
   );
 
   return c.json(result, 201);
-});
+}));
 
 export default router;
