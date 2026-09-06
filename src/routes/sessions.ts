@@ -12,6 +12,7 @@ import {
 import { withNolioToken } from "../lib/nolioSession";
 import { mapNolioTraining, isFulfilledBy, Session } from "../lib/sessionMapper";
 import { addDays, isoDate, weekMondayFromDate } from "../lib/dateUtils";
+import { withFlow } from "../../focale.instrument.mjs";
 
 type Bindings = { DB: D1Database; NOLIO_CLIENT_SECRET: string };
 type Variables = { userId: string };
@@ -25,7 +26,8 @@ function withToken<T>(c: any, fn: (token: string) => Promise<T>): Promise<T> {
 
 // GET /api/sessions/week?weekStart=YYYY-MM-DD — planned + completed sessions for
 // the week containing weekStart (any day in that week works; defaults to today).
-router.get("/week", async (c) => {
+router.get("/week", (c) =>
+  withFlow("session_logging_and_planning", async () => {
   const weekStartParam = c.req.query("weekStart");
   const anchor = weekStartParam ? new Date(weekStartParam + "T00:00:00") : new Date();
   const monday = weekMondayFromDate(anchor);
@@ -59,10 +61,12 @@ router.get("/week", async (c) => {
     weeklyTargetKm: Math.round(weeklyTargetKm * 10) / 10,
     weeklyActualKm: Math.round(weeklyActualKm * 10) / 10,
   });
-});
+  })
+);
 
 // GET /api/sessions/plan — upcoming planned sessions grouped by week (Monday date key).
-router.get("/plan", async (c) => {
+router.get("/plan", (c) =>
+  withFlow("session_logging_and_planning", async () => {
   const today = new Date();
   const from = isoDate(today);
   const to = isoDate(addDays(today, 16 * 7)); // 16-week horizon
@@ -87,12 +91,14 @@ router.get("/plan", async (c) => {
   }
 
   return c.json({ byWeek });
-});
+  })
+);
 
 // GET /api/sessions/history?before=YYYY-MM-DD&limit=20 — completed sessions, most recent first.
 // Nolio's API only supports a date-range cursor (no offset), so pagination walks
 // backwards using the oldest date_start seen so far as the next page's `to`.
-router.get("/history", async (c) => {
+router.get("/history", (c) =>
+  withFlow("session_logging_and_planning", async () => {
   const before = c.req.query("before");
   const limit = parseInt(c.req.query("limit") ?? "20", 10);
 
@@ -102,7 +108,8 @@ router.get("/history", async (c) => {
   });
 
   return c.json({ sessions });
-});
+  })
+);
 
 // GET /api/sessions/sports — sport_id values seen in the athlete's own Nolio
 // history. Nolio has no directory endpoint for this; it's discovered, not fixed.
@@ -141,7 +148,8 @@ router.get("/:id", async (c) => {
 });
 
 // POST /api/sessions/log — record a completed training.
-router.post("/log", async (c) => {
+router.post("/log", (c) =>
+  withFlow("session_logging_and_planning", async () => {
   const body = await c.req.json<{
     name: string;
     sportId: number;
@@ -169,10 +177,12 @@ router.post("/log", async (c) => {
   );
 
   return c.json(result, 201);
-});
+  })
+);
 
 // POST /api/sessions/schedule — create a planned training.
-router.post("/schedule", async (c) => {
+router.post("/schedule", (c) =>
+  withFlow("session_logging_and_planning", async () => {
   const body = await c.req.json<{
     name: string;
     sportId: number;
@@ -198,6 +208,7 @@ router.post("/schedule", async (c) => {
   );
 
   return c.json(result, 201);
-});
+  })
+);
 
 export default router;

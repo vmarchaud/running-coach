@@ -4,6 +4,7 @@ import { createDb } from "../../db";
 import { users, strengthMaxes } from "../../db/schema";
 import { createCompetition, getUpcomingObjectives } from "../lib/nolioApi";
 import { withNolioToken } from "../lib/nolioSession";
+import { withFlow } from "../../focale.instrument.mjs";
 
 type Bindings = { DB: D1Database; NOLIO_CLIENT_SECRET: string };
 type Variables = { userId: string };
@@ -51,7 +52,8 @@ async function pushRaceGoalToNolio(
   }
 }
 
-router.post("/", async (c) => {
+router.post("/", async (c) =>
+  withFlow("nolio_auth_and_session", async () => {
   const body = await c.req.json<{
     id: string;
     name: string;
@@ -80,9 +82,11 @@ router.post("/", async (c) => {
   await pushRaceGoalToNolio(db, body.id, c.env.NOLIO_CLIENT_SECRET, body);
 
   return c.json({ user: body });
-});
+  })
+);
 
-router.get("/me", async (c) => {
+router.get("/me", async (c) =>
+  withFlow("nolio_auth_and_session", async () => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
 
@@ -90,7 +94,8 @@ router.get("/me", async (c) => {
   if (!user) return c.json({ error: "Not found" }, 404);
 
   return c.json({ user });
-});
+  })
+);
 
 // GET /api/users/strength-maxes — the athlete's saved 1RMs, set in Settings.
 router.get("/strength-maxes", async (c) => {

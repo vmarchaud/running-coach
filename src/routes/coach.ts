@@ -4,6 +4,7 @@ import { createDb } from "../../db";
 import { coachMessages } from "../../db/schema";
 import { runCoachAgent } from "../lib/coachAgent";
 import type { ClaudeMessage } from "../lib/claude";
+import { withFlow } from "../../focale.instrument.mjs";
 
 type Bindings = {
   DB: D1Database;
@@ -17,7 +18,8 @@ const router = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 // GET /api/coach/messages — full conversation history, persisted server-side so it
 // survives a refresh and follows the athlete across devices (keyed by their
 // Nolio-authenticated userId, not a per-browser localStorage entry).
-router.get("/messages", async (c) => {
+router.get("/messages", (c) =>
+  withFlow("coach_agent_and_checkins", async () => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
 
@@ -34,7 +36,8 @@ router.get("/messages", async (c) => {
   }));
 
   return c.json({ messages });
-});
+  })
+);
 
 // DELETE /api/coach/messages — clear the conversation and start fresh.
 router.delete("/messages", async (c) => {
@@ -48,7 +51,8 @@ router.delete("/messages", async (c) => {
 // appends the new user message, runs the agent, and persists every message
 // produced this turn (including tool_use/tool_result blocks the agent needs for
 // context on the next call).
-router.post("/chat", async (c) => {
+router.post("/chat", (c) =>
+  withFlow("coach_agent_and_checkins", async () => {
   const userId = c.get("userId");
   const body = await c.req.json<{ message: string }>();
 
@@ -116,6 +120,7 @@ router.post("/chat", async (c) => {
   return new Response(readable, {
     headers: { "Content-Type": "application/x-ndjson; charset=utf-8" },
   });
-});
+  })
+);
 
 export default router;
