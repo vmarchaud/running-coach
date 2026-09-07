@@ -1,4 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
+import { withFlow } from "../../focale.instrument.mjs";
 import type { Db } from "../../db";
 import { users, plannedTrainingRefs, strengthMaxes } from "../../db/schema";
 import { callClaude, ClaudeContentBlock, ClaudeMessage, ClaudeTool } from "./claude";
@@ -491,6 +492,18 @@ const TOOL_LABELS: Record<string, string> = {
   load_memory: "Recalling past notes",
 };
 
+// Tool names that constitute the "session logging and scheduling" user
+// action — writes that create/change/remove a training on the athlete's
+// Nolio calendar. Wrapped per-call rather than around executeTool as a whole,
+// since executeTool is also invoked for unrelated read-only tools (HRV,
+// records, memory, etc) that aren't part of this flow.
+const SESSION_LOG_SCHEDULE_TOOLS = new Set([
+  "log_completed_training",
+  "schedule_planned_training",
+  "update_planned_training",
+  "delete_planned_training",
+]);
+
 export type AgentEvent =
   | { type: "tool_start"; id: string; name: string; label: string; input: Record<string, unknown> }
   | { type: "tool_end"; id: string; name: string; ok: boolean };
@@ -503,6 +516,7 @@ export async function runCoachAgent(
   history: ClaudeMessage[],
   onEvent?: (event: AgentEvent) => void | Promise<void>
 ): Promise<{ reply: string; messages: ClaudeMessage[] }> {
+  return withFlow("coach_chat_agent", async () => {
   const messages: ClaudeMessage[] = [...history];
   const systemPrompt = await buildSystemPrompt(db, userId, nolioClientSecret);
 
@@ -571,7 +585,11 @@ export async function runCoachAgent(
           input: tu.input,
         });
         try {
-          const result = await executeTool(tu.name, tu.input, db, userId, nolioClientSecret);
+          const result = SESSION_LOG_SCHEDULE_TOOLS.has(tu.name)
+            ? await withFlow("session_log_schedule", () =>
+                executeTool(tu.name, tu.input, db, userId, nolioClientSecret)
+              )
+            : await executeTool(tu.name, tu.input, db, userId, nolioClientSecret);
           await onEvent?.({ type: "tool_end", id: tu.id, name: tu.name, ok: true });
 
           const verb = WRITE_ACTION_VERBS[tu.name];
@@ -608,5 +626,6 @@ export async function runCoachAgent(
       ? `I got through part of this before running out of room to confirm it in words, but everything below is already saved:\n\n${writeSummary.map((s) => `- ${s}`).join("\n")}\n\nAsk me to continue if there's more to do.`
       : "I ran into trouble gathering everything I needed — try asking again, maybe with a narrower question.";
   messages.push({ role: "assistant", content: fallbackReply });
-  return { reply: fallbackReply, messages };
+    return { reply: fallbackReply, messages };
+  });
 }
