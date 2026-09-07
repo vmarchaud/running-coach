@@ -4,6 +4,7 @@ import { createDb } from "../../db";
 import { coachMessages } from "../../db/schema";
 import { runCoachAgent } from "../lib/coachAgent";
 import type { ClaudeMessage } from "../lib/claude";
+import { withFlow } from "../../focale.instrument.mjs";
 
 type Bindings = {
   DB: D1Database;
@@ -80,7 +81,7 @@ router.post("/chat", async (c) => {
   const encoder = new TextEncoder();
   const send = (obj: unknown) => writer.write(encoder.encode(`${JSON.stringify(obj)}\n`));
 
-  (async () => {
+  const streamWork = withFlow("coach_chat_stream", async () => {
     try {
       const { reply, messages } = await runCoachAgent(
         db,
@@ -111,7 +112,9 @@ router.post("/chat", async (c) => {
     } finally {
       await writer.close();
     }
-  })();
+  });
+
+  c.executionCtx.waitUntil(streamWork);
 
   return new Response(readable, {
     headers: { "Content-Type": "application/x-ndjson; charset=utf-8" },
