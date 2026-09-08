@@ -4,6 +4,7 @@ import { users, nolioTokens, coachMessages, pushSubscriptions } from "../../db/s
 import { runCoachAgent } from "./coachAgent";
 import { sendPushNotification } from "./webPush";
 import type { ClaudeMessage } from "./claude";
+import { withFlow } from "../../focale.instrument.mjs";
 
 // Cron runs daily; this gate keeps the actual per-athlete cadence at roughly
 // every 2-3 days rather than every single run.
@@ -39,26 +40,39 @@ interface CheckinEnv {
 }
 
 export async function runScheduledCheckins(env: CheckinEnv): Promise<void> {
-  const db = createDb(env.DB);
-  const cutoff = new Date(Date.now() - CHECKIN_INTERVAL_HOURS * 60 * 60 * 1000).toISOString();
+  return withFlow("session_log_schedule", async () => {
+    const db = createDb(env.DB);
+    const cutoff = new Date(Date.now() - CHECKIN_INTERVAL_HOURS * 60 * 60 * 1000).toISOString();
 
-  const candidates = await db
-    .select()
-    .from(users)
-    .where(or(isNull(users.lastCheckinAt), lt(users.lastCheckinAt, cutoff)))
-    .all();
+    const candidates = await db
+      .select()
+      .from(users)
+      .where(or(isNull(users.lastCheckinAt), lt(users.lastCheckinAt, cutoff)))
+      .all();
 
-  for (const user of candidates) {
-    const connected = await db.select().from(nolioTokens).where(eq(nolioTokens.userId, user.id)).get();
-    if (!connected) continue; // nothing to check in on without a live Nolio session
+    let attempted = 0;
+    let failed = 0;
+    let lastError: unknown;
 
-    try {
-      await checkinForUser(db, user.id, env);
-    } catch {
-      // One athlete's failure (Nolio token expired, model error, etc.)
-      // shouldn't block check-ins for everyone else.
+    for (const user of candidates) {
+      const connected = await db.select().from(nolioTokens).where(eq(nolioTokens.userId, user.id)).get();
+      if (!connected) continue; // nothing to check in on without a live Nolio session
+
+      attempted++;
+      try {
+        await checkinForUser(db, user.id, env);
+      } catch (e) {
+        // One athlete's failure (Nolio token expired, model error, etc.)
+        // shouldn't block check-ins for everyone else.
+        failed++;
+        lastError = e;
+      }
     }
-  }
+
+    if (attempted > 0 && failed === attempted) {
+      throw lastError;
+    }
+  });
 }
 
 async function checkinForUser(db: Db, userId: string, env: CheckinEnv): Promise<void> {
