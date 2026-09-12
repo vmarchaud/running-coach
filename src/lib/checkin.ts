@@ -4,6 +4,7 @@ import { users, nolioTokens, coachMessages, pushSubscriptions } from "../../db/s
 import { runCoachAgent } from "./coachAgent";
 import { sendPushNotification } from "./webPush";
 import type { ClaudeMessage } from "./claude";
+import { withFlow } from "../../focale.instrument.mjs";
 
 // Cron runs daily; this gate keeps the actual per-athlete cadence at roughly
 // every 2-3 days rather than every single run.
@@ -53,7 +54,14 @@ export async function runScheduledCheckins(env: CheckinEnv): Promise<void> {
     if (!connected) continue; // nothing to check in on without a live Nolio session
 
     try {
-      await checkinForUser(db, user.id, env);
+      await withFlow("scheduled_checkin_notifications", async (flow) => {
+        try {
+          await checkinForUser(db, user.id, env);
+        } catch (err) {
+          flow.fail(err);
+          throw err;
+        }
+      });
     } catch {
       // One athlete's failure (Nolio token expired, model error, etc.)
       // shouldn't block check-ins for everyone else.
@@ -115,10 +123,13 @@ async function checkinForUser(db: Db, userId: string, env: CheckinEnv): Promise<
       { title: "Your coach checked in", body: summary || "See what's new.", url: "/?tab=coach" }
     );
 
-    if (!result.ok && result.gone) {
-      await db
-        .delete(pushSubscriptions)
-        .where(and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.id, sub.id)));
+    if (!result.ok) {
+      if (result.gone) {
+        await db
+          .delete(pushSubscriptions)
+          .where(and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.id, sub.id)));
+      }
+      throw new Error("push notification failed");
     }
   }
 }
