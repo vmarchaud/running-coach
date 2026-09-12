@@ -8,6 +8,7 @@ import {
   refreshTokens,
   getNolioUser,
 } from "../lib/nolioClient";
+import { withFlow } from "../../focale.instrument.mjs";
 
 type Bindings = { DB: D1Database; NOLIO_CLIENT_SECRET: string; NOLIO_REDIRECT_URI: string };
 type Variables = { userId: string };
@@ -20,8 +21,10 @@ export function nolioUserIdFor(nolioId: string | number): string {
 
 // GET /api/nolio/connect — full-page redirect to Nolio OAuth. This IS the login entry point.
 router.get("/connect", async (c) => {
-  const state = crypto.randomUUID();
-  const url = buildAuthorizeUrl(c.env.NOLIO_REDIRECT_URI, state);
+  const url = await withFlow("nolio_auth_session_gate", async () => {
+    const state = crypto.randomUUID();
+    return buildAuthorizeUrl(c.env.NOLIO_REDIRECT_URI, state);
+  });
   return c.redirect(url);
 });
 
@@ -31,38 +34,48 @@ router.get("/callback", async (c) => {
   const code = c.req.query("code");
   const error = c.req.query("error");
 
-  if (error || !code) {
-    return c.redirect(`/?nolioError=${encodeURIComponent(error ?? "missing_code")}`);
-  }
+  try {
+    const userId = await withFlow("nolio_auth_session_gate", async (flow) => {
+      if (error || !code) {
+        const err = new Error(error ?? "missing_code");
+        flow.fail(err);
+        throw err;
+      }
 
-  const tokens = await exchangeCode(code, c.env.NOLIO_REDIRECT_URI, c.env.NOLIO_CLIENT_SECRET);
-  const nolioUser = await getNolioUser(tokens.access_token);
-  const userId = nolioUserIdFor(nolioUser.id);
+      const tokens = await exchangeCode(code, c.env.NOLIO_REDIRECT_URI, c.env.NOLIO_CLIENT_SECRET);
+      const nolioUser = await getNolioUser(tokens.access_token);
+      const userId = nolioUserIdFor(nolioUser.id);
 
-  const db = createDb(c.env.DB);
-  await db
-    .insert(nolioTokens)
-    .values({
-      userId,
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
-      nolioUserId: String(nolioUser.id),
-      nolioFirstName: nolioUser.first_name,
-      nolioLastName: nolioUser.last_name,
-    })
-    .onConflictDoUpdate({
-      target: nolioTokens.userId,
-      set: {
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        nolioUserId: String(nolioUser.id),
-        nolioFirstName: nolioUser.first_name,
-        nolioLastName: nolioUser.last_name,
-        updatedAt: new Date().toISOString(),
-      },
+      const db = createDb(c.env.DB);
+      await db
+        .insert(nolioTokens)
+        .values({
+          userId,
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token,
+          nolioUserId: String(nolioUser.id),
+          nolioFirstName: nolioUser.first_name,
+          nolioLastName: nolioUser.last_name,
+        })
+        .onConflictDoUpdate({
+          target: nolioTokens.userId,
+          set: {
+            accessToken: tokens.access_token,
+            refreshToken: tokens.refresh_token,
+            nolioUserId: String(nolioUser.id),
+            nolioFirstName: nolioUser.first_name,
+            nolioLastName: nolioUser.last_name,
+            updatedAt: new Date().toISOString(),
+          },
+        });
+
+      return userId;
     });
 
-  return c.redirect(`/?nolioUserId=${encodeURIComponent(userId)}`);
+    return c.redirect(`/?nolioUserId=${encodeURIComponent(userId)}`);
+  } catch {
+    return c.redirect(`/?nolioError=${encodeURIComponent("auth_failed")}`);
+  }
 });
 
 // GET /api/nolio/status — returns connection status + Nolio profile for the current user.

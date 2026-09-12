@@ -4,6 +4,7 @@ import { users, nolioTokens, coachMessages, pushSubscriptions } from "../../db/s
 import { runCoachAgent } from "./coachAgent";
 import { sendPushNotification } from "./webPush";
 import type { ClaudeMessage } from "./claude";
+import { withFlow } from "../../focale.instrument.mjs";
 
 // Cron runs daily; this gate keeps the actual per-athlete cadence at roughly
 // every 2-3 days rather than every single run.
@@ -109,11 +110,19 @@ async function checkinForUser(db: Db, userId: string, env: CheckinEnv): Promise<
   const summary = plainReply.length > 140 ? `${plainReply.slice(0, 137)}...` : plainReply;
 
   for (const sub of subs) {
-    const result = await sendPushNotification(
-      { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
-      env.VAPID_PRIVATE_KEY,
-      { title: "Your coach checked in", body: summary || "See what's new.", url: "/?tab=coach" }
-    );
+    const result = await withFlow("scheduled_checkin_notifications", async (flow) => {
+      const result = await sendPushNotification(
+        { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
+        env.VAPID_PRIVATE_KEY,
+        { title: "Your coach checked in", body: summary || "See what's new.", url: "/?tab=coach" }
+      );
+
+      if (!result.ok) {
+        flow.fail(new Error(result.error));
+      }
+
+      return result;
+    });
 
     if (!result.ok && result.gone) {
       await db

@@ -19,6 +19,7 @@ import {
 import { withNolioToken } from "./nolioSession";
 import { diffDays } from "./dateUtils";
 import { saveMemory, loadMemories } from "./memory";
+import { withFlow } from "../../focale.instrument.mjs";
 
 // Nolio's update/delete endpoints are keyed by id_partner, which its own GET
 // endpoints never return — only nolio_id. So the coach can only update/delete
@@ -307,20 +308,22 @@ async function executeTool(
       case "list_known_sports":
         return getKnownSports(token);
       case "log_completed_training":
-        return createTraining(token, input);
+        return withFlow("training_session_write_sync", () => createTraining(token, input));
       case "schedule_planned_training": {
-        const result: any = await createPlannedTraining(token, input);
-        if (typeof result?.id_partner === "number") {
-          await db.insert(plannedTrainingRefs).values({
-            id: crypto.randomUUID(),
-            userId,
-            idPartner: result.id_partner,
-            dateStart: input.date_start,
-            sportId: input.sport_id,
-            name: input.name,
-          });
-        }
-        return result;
+        return withFlow("training_session_write_sync", async () => {
+          const result: any = await createPlannedTraining(token, input);
+          if (typeof result?.id_partner === "number") {
+            await db.insert(plannedTrainingRefs).values({
+              id: crypto.randomUUID(),
+              userId,
+              idPartner: result.id_partner,
+              dateStart: input.date_start,
+              sportId: input.sport_id,
+              name: input.name,
+            });
+          }
+          return result;
+        });
       }
       case "update_planned_training": {
         const ref = await findPlannedTrainingRef(db, userId, {
@@ -333,12 +336,14 @@ async function executeTool(
             "Couldn't find a session I scheduled matching that date/sport — I can only update sessions I created myself."
           );
         }
-        const result: any = await updatePlannedTraining(token, ref.idPartner, input);
-        await db
-          .update(plannedTrainingRefs)
-          .set({ dateStart: input.date_start, sportId: input.sport_id, name: input.name })
-          .where(eq(plannedTrainingRefs.idPartner, ref.idPartner));
-        return result;
+        return withFlow("training_session_write_sync", async () => {
+          const result: any = await updatePlannedTraining(token, ref.idPartner, input);
+          await db
+            .update(plannedTrainingRefs)
+            .set({ dateStart: input.date_start, sportId: input.sport_id, name: input.name })
+            .where(eq(plannedTrainingRefs.idPartner, ref.idPartner));
+          return result;
+        });
       }
       case "delete_planned_training": {
         const ref = await findPlannedTrainingRef(db, userId, {
