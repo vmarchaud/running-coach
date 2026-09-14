@@ -8,6 +8,7 @@ import {
   refreshTokens,
   getNolioUser,
 } from "../lib/nolioClient";
+import { withFlow } from "../../focale.instrument.mjs";
 
 type Bindings = { DB: D1Database; NOLIO_CLIENT_SECRET: string; NOLIO_REDIRECT_URI: string };
 type Variables = { userId: string };
@@ -20,8 +21,10 @@ export function nolioUserIdFor(nolioId: string | number): string {
 
 // GET /api/nolio/connect — full-page redirect to Nolio OAuth. This IS the login entry point.
 router.get("/connect", async (c) => {
-  const state = crypto.randomUUID();
-  const url = buildAuthorizeUrl(c.env.NOLIO_REDIRECT_URI, state);
+  const url = await withFlow("nolio_auth_session", async () => {
+    const state = crypto.randomUUID();
+    return buildAuthorizeUrl(c.env.NOLIO_REDIRECT_URI, state);
+  });
   return c.redirect(url);
 });
 
@@ -31,38 +34,59 @@ router.get("/callback", async (c) => {
   const code = c.req.query("code");
   const error = c.req.query("error");
 
-  if (error || !code) {
-    return c.redirect(`/?nolioError=${encodeURIComponent(error ?? "missing_code")}`);
-  }
+  try {
+    const userId = await withFlow("nolio_auth_session", async (flow) => {
+      if (error || !code) {
+        const e = new Error(error ?? "missing_code");
+        flow.fail(e);
+        throw e;
+      }
 
-  const tokens = await exchangeCode(code, c.env.NOLIO_REDIRECT_URI, c.env.NOLIO_CLIENT_SECRET);
-  const nolioUser = await getNolioUser(tokens.access_token);
-  const userId = nolioUserIdFor(nolioUser.id);
+      try {
+        const tokens = await exchangeCode(code, c.env.NOLIO_REDIRECT_URI, c.env.NOLIO_CLIENT_SECRET);
+        const nolioUser = await getNolioUser(tokens.access_token);
+        const uid = nolioUserIdFor(nolioUser.id);
 
-  const db = createDb(c.env.DB);
-  await db
-    .insert(nolioTokens)
-    .values({
-      userId,
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
-      nolioUserId: String(nolioUser.id),
-      nolioFirstName: nolioUser.first_name,
-      nolioLastName: nolioUser.last_name,
-    })
-    .onConflictDoUpdate({
-      target: nolioTokens.userId,
-      set: {
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        nolioUserId: String(nolioUser.id),
-        nolioFirstName: nolioUser.first_name,
-        nolioLastName: nolioUser.last_name,
-        updatedAt: new Date().toISOString(),
-      },
+        const db = createDb(c.env.DB);
+        await db
+          .insert(nolioTokens)
+          .values({
+            userId: uid,
+            accessToken: tokens.access_token,
+            refreshToken: tokens.refresh_token,
+            nolioUserId: String(nolioUser.id),
+            nolioFirstName: nolioUser.first_name,
+            nolioLastName: nolioUser.last_name,
+          })
+          .onConflictDoUpdate({
+            target: nolioTokens.userId,
+            set: {
+              accessToken: tokens.access_token,
+              refreshToken: tokens.refresh_token,
+              nolioUserId: String(nolioUser.id),
+              nolioFirstName: nolioUser.first_name,
+              nolioLastName: nolioUser.last_name,
+              updatedAt: new Date().toISOString(),
+            },
+          });
+
+        return uid;
+      } catch (e) {
+        flow.fail(e);
+        throw e;
+      }
     });
 
-  return c.redirect(`/?nolioUserId=${encodeURIComponent(userId)}`);
+    return c.redirect(`/?nolioUserId=${encodeURIComponent(userId)}`);
+  } catch (e: any) {
+    if (error) {
+      return c.redirect(`/?nolioError=${encodeURIComponent(error)}`);
+    }
+    if (!code) {
+      return c.redirect(`/?nolioError=${encodeURIComponent("missing_code")}`);
+    }
+    return c.redirect(`/?nolioError=${encodeURIComponent("callback_failed")}`);
+  }
 });
 
 // GET /api/nolio/status — returns connection status + Nolio profile for the current user.
@@ -92,17 +116,25 @@ router.get("/status", async (c) => {
   } catch {
     // Access token likely expired — try refresh
     try {
-      const fresh = await refreshTokens(row.refreshToken, c.env.NOLIO_CLIENT_SECRET);
-      await db
-        .update(nolioTokens)
-        .set({
-          accessToken: fresh.access_token,
-          refreshToken: fresh.refresh_token,
-          updatedAt: new Date().toISOString(),
-        })
-        .where(eq(nolioTokens.userId, userId));
+      const nolioUser = await withFlow("nolio_auth_session", async (flow) => {
+        try {
+          const fresh = await refreshTokens(row.refreshToken, c.env.NOLIO_CLIENT_SECRET);
+          await db
+            .update(nolioTokens)
+            .set({
+              accessToken: fresh.access_token,
+              refreshToken: fresh.refresh_token,
+              updatedAt: new Date().toISOString(),
+            })
+            .where(eq(nolioTokens.userId, userId));
 
-      const nolioUser = await getNolioUser(fresh.access_token);
+          return await getNolioUser(fresh.access_token);
+        } catch (e) {
+          flow.fail(e);
+          throw e;
+        }
+      });
+
       return c.json({
         connected: true,
         nolioUser: {
@@ -114,7 +146,14 @@ router.get("/status", async (c) => {
       });
     } catch {
       // Refresh token also expired — user must sign in again
-      await db.delete(nolioTokens).where(eq(nolioTokens.userId, userId));
+      await withFlow("nolio_auth_session", async (flow) => {
+        try {
+          await db.delete(nolioTokens).where(eq(nolioTokens.userId, userId));
+        } catch (e) {
+          flow.fail(e);
+          throw e;
+        }
+      });
       return c.json({ connected: false, reason: "token_expired" });
     }
   }
@@ -124,7 +163,14 @@ router.get("/status", async (c) => {
 router.delete("/disconnect", async (c) => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
-  await db.delete(nolioTokens).where(eq(nolioTokens.userId, userId));
+  await withFlow("nolio_auth_session", async (flow) => {
+    try {
+      await db.delete(nolioTokens).where(eq(nolioTokens.userId, userId));
+    } catch (e) {
+      flow.fail(e);
+      throw e;
+    }
+  });
   return c.json({ ok: true });
 });
 
