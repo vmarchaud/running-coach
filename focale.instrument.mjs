@@ -72,12 +72,23 @@ function bindEnv(env) {
   providers = { tracerProvider, meterProvider, loggerProvider };
 }
 
+const FLUSH_TIMEOUT_MS = 3000;
+
+function withTimeout(promise) {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((resolve) => setTimeout(resolve, FLUSH_TIMEOUT_MS)),
+  ]);
+}
+
 async function flush() {
   if (!providers) return;
+  // forceFlush() can hang indefinitely inside the OTel SDK even with no
+  // exporters registered — never let telemetry flush block the Worker.
   await Promise.allSettled([
-    providers.tracerProvider.forceFlush(),
-    providers.meterProvider.forceFlush(),
-    providers.loggerProvider.forceFlush(),
+    withTimeout(providers.tracerProvider.forceFlush()),
+    withTimeout(providers.meterProvider.forceFlush()),
+    withTimeout(providers.loggerProvider.forceFlush()),
   ]);
 }
 
@@ -152,19 +163,23 @@ export async function withFlow(flowKey, fn) {
 export function withWorkers(handler) {
   const run = (ctx, invoke) => {
     const pending = [];
-    if (ctx && typeof ctx.waitUntil === 'function') {
-      const orig = ctx.waitUntil.bind(ctx);
+    const origWaitUntil = ctx && typeof ctx.waitUntil === 'function' ? ctx.waitUntil.bind(ctx) : null;
+    if (origWaitUntil) {
       ctx.waitUntil = (p) => {
         const task = Promise.resolve(p);
         pending.push(task);
-        orig(task);
+        origWaitUntil(task);
       };
     }
     const result = invoke();
     const done = Promise.resolve(result)
       .then(() => Promise.allSettled(pending))
       .finally(() => flush());
-    if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(done);
+    // Register `done` with the ORIGINAL waitUntil, not the patched one above —
+    // otherwise `done` gets pushed into `pending` before it resolves, and its
+    // own `Promise.allSettled(pending)` step would then be waiting on itself
+    // forever (the exact cause of the "Worker hung" cancellations).
+    if (origWaitUntil) origWaitUntil(done);
     return result;
   };
   if (handler && (typeof handler.fetch === 'function' || typeof handler.scheduled === 'function')) {
