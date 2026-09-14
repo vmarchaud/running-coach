@@ -29,19 +29,38 @@ import {
 
 const OTLP_EXPORT_TIMEOUT_MS = 5000;
 
+let inflight = 0;
+
+function dbg(event, data) {
+  console.log('[focale-debug]', JSON.stringify({ t: Date.now(), event, ...data }));
+}
+
+function signalKind(url) {
+  if (String(url).endsWith('/v1/traces')) return 'traces';
+  if (String(url).endsWith('/v1/metrics')) return 'metrics';
+  if (String(url).endsWith('/v1/logs')) return 'logs';
+  return 'unknown';
+}
+
 function makeFetchExporter(url, headers, serializer) {
+  const kind = signalKind(url);
   const doExport = (item, resultCallback) => {
     let body;
     try {
       body = serializer.serializeRequest(item);
     } catch (err) {
+      dbg('export.serialize_fail', { kind, err: String(err && err.message ? err.message : err) });
       resultCallback({ code: ExportResultCode.FAILED, error: err });
       return;
     }
     if (!body) {
+      dbg('export.empty', { kind });
       resultCallback({ code: ExportResultCode.SUCCESS });
       return;
     }
+    const bytes = body.byteLength ?? body.length ?? 0;
+    inflight += 1;
+    dbg('export.start', { kind, bytes, inflight });
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), OTLP_EXPORT_TIMEOUT_MS);
     fetch(url, {
@@ -51,18 +70,33 @@ function makeFetchExporter(url, headers, serializer) {
       signal: controller.signal,
     })
       .then((res) => {
+        dbg('export.response', { kind, status: res.status, inflight });
         if (!res.ok) throw new Error(`OTLP export to ${url} failed: ${res.status}`);
         resultCallback({ code: ExportResultCode.SUCCESS });
       })
       .catch((err) => {
+        const name = err && err.name ? err.name : '';
+        dbg('export.fail', {
+          kind,
+          name,
+          aborted: name === 'AbortError',
+          err: String(err && err.message ? err.message : err),
+          inflight,
+        });
         resultCallback({ code: ExportResultCode.FAILED, error: err });
       })
-      .finally(() => clearTimeout(timeout));
+      .finally(() => {
+        clearTimeout(timeout);
+        inflight -= 1;
+        dbg('export.end', { kind, inflight });
+      });
   };
   return {
     export: doExport,
     async shutdown() {},
-    async forceFlush() {},
+    async forceFlush() {
+      dbg('exporter.forceFlush', { kind, inflight });
+    },
   };
 }
 
@@ -95,6 +129,11 @@ function bindEnv(env) {
   // before a response was ever produced.
   try {
     const parsed = parseDsn(dsn);
+    dbg('bindEnv', {
+      hasDsn: Boolean(dsn),
+      host: parsed ? parsed.base : null,
+      keyChars: parsed && parsed.key ? parsed.key.length : 0,
+    });
     const resource = new Resource({
       [ATTR_SERVICE_NAME]: env.OTEL_SERVICE_NAME || 'focale-watched',
       'focale.runtime': 'workers',
@@ -126,7 +165,12 @@ function bindEnv(env) {
     metrics.setGlobalMeterProvider(meterProvider);
     logs.setGlobalLoggerProvider(loggerProvider);
     providers = { tracerProvider, meterProvider, loggerProvider };
+    dbg('bindEnv.ok', { exporters: Boolean(parsed) });
   } catch (err) {
+    dbg('bindEnv.fail', {
+      name: err && err.name ? err.name : '',
+      err: String(err && err.message ? err.message : err),
+    });
     console.error('[focale] failed to initialize telemetry providers, continuing without them', err);
     providers = null;
   }
@@ -142,24 +186,35 @@ function withTimeout(promise) {
 }
 
 async function flush() {
-  if (!providers) return;
+  if (!providers) {
+    dbg('flush.skip', { inflight, reason: 'no_providers' });
+    return;
+  }
   // forceFlush() can hang indefinitely inside the OTel SDK even with no
   // exporters registered — never let telemetry flush block the Worker.
+  const t0 = Date.now();
+  dbg('flush.start', { inflight });
   await Promise.allSettled([
     withTimeout(providers.tracerProvider.forceFlush()),
     withTimeout(providers.meterProvider.forceFlush()),
     withTimeout(providers.loggerProvider.forceFlush()),
   ]);
+  dbg('flush.end', { inflight, ms: Date.now() - t0 });
 }
 
 let booted = false;
 function emitBoot() {
-  if (booted) return;
+  if (booted) {
+    dbg('boot.skip', { inflight });
+    return;
+  }
   booted = true;
+  dbg('boot.emit', { inflight, hasProviders: Boolean(providers) });
   const boot = trace.getTracer('focale').startSpan('focale.boot');
   boot.setAttribute('focale.boot', true);
   boot.end();
   metrics.getMeter('focale').createCounter('focale.boot').add(1, { 'focale.boot': true });
+  dbg('boot.ended', { inflight });
 }
 
 function toFlowError(err) {
@@ -234,12 +289,14 @@ export function withWorkers(handler) {
     const result = invoke();
     const done = Promise.resolve(result)
       .then(() => Promise.allSettled(pending))
-      .finally(() => flush());
+      .finally(() => flush())
+      .finally(() => dbg('waitUntil.done', { inflight }));
     // Register `done` with the ORIGINAL waitUntil, not the patched one above —
     // otherwise `done` gets pushed into `pending` before it resolves, and its
     // own `Promise.allSettled(pending)` step would then be waiting on itself
     // forever (the exact cause of the "Worker hung" cancellations).
     if (origWaitUntil) origWaitUntil(done);
+    else dbg('waitUntil.missing', { inflight });
     return result;
   };
   if (handler && (typeof handler.fetch === 'function' || typeof handler.scheduled === 'function')) {
