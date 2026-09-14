@@ -38,38 +38,47 @@ function bindEnv(env) {
     (typeof process !== 'undefined' ? process.env.FOCALE_DSN : undefined);
   if (providers && boundDsn === (dsn || '')) return;
   boundDsn = dsn || '';
-  const parsed = parseDsn(dsn);
-  const resource = new Resource({
-    [ATTR_SERVICE_NAME]: env.OTEL_SERVICE_NAME || 'focale-watched',
-    'focale.runtime': 'workers',
-  });
-  const tracerProvider = new BasicTracerProvider({ resource });
-  const meterProvider = new MeterProvider({ resource });
-  const loggerProvider = new LoggerProvider({ resource });
-  if (parsed) {
-    const headers = { Authorization: 'Bearer ' + parsed.key };
-    const base = parsed.base;
-    tracerProvider.addSpanProcessor(
-      new SimpleSpanProcessor(
-        new OTLPTraceExporter({ url: base + '/v1/traces', headers }),
-      ),
-    );
-    meterProvider.addMetricReader(
-      new PeriodicExportingMetricReader({
-        exporter: new OTLPMetricExporter({ url: base + '/v1/metrics', headers }),
-        exportIntervalMillis: 60000,
-      }),
-    );
-    loggerProvider.addLogRecordProcessor(
-      new SimpleLogRecordProcessor(
-        new OTLPLogExporter({ url: base + '/v1/logs', headers }),
-      ),
-    );
+  // Provider/exporter construction must never be able to take the app down —
+  // e.g. the OTLP exporters' bundled platform build can throw synchronously
+  // in the Workers runtime, which previously crashed every request (500s)
+  // before a response was ever produced.
+  try {
+    const parsed = parseDsn(dsn);
+    const resource = new Resource({
+      [ATTR_SERVICE_NAME]: env.OTEL_SERVICE_NAME || 'focale-watched',
+      'focale.runtime': 'workers',
+    });
+    const tracerProvider = new BasicTracerProvider({ resource });
+    const meterProvider = new MeterProvider({ resource });
+    const loggerProvider = new LoggerProvider({ resource });
+    if (parsed) {
+      const headers = { Authorization: 'Bearer ' + parsed.key };
+      const base = parsed.base;
+      tracerProvider.addSpanProcessor(
+        new SimpleSpanProcessor(
+          new OTLPTraceExporter({ url: base + '/v1/traces', headers }),
+        ),
+      );
+      meterProvider.addMetricReader(
+        new PeriodicExportingMetricReader({
+          exporter: new OTLPMetricExporter({ url: base + '/v1/metrics', headers }),
+          exportIntervalMillis: 60000,
+        }),
+      );
+      loggerProvider.addLogRecordProcessor(
+        new SimpleLogRecordProcessor(
+          new OTLPLogExporter({ url: base + '/v1/logs', headers }),
+        ),
+      );
+    }
+    tracerProvider.register();
+    metrics.setGlobalMeterProvider(meterProvider);
+    logs.setGlobalLoggerProvider(loggerProvider);
+    providers = { tracerProvider, meterProvider, loggerProvider };
+  } catch (err) {
+    console.error('[focale] failed to initialize telemetry providers, continuing without them', err);
+    providers = null;
   }
-  tracerProvider.register();
-  metrics.setGlobalMeterProvider(meterProvider);
-  logs.setGlobalLoggerProvider(loggerProvider);
-  providers = { tracerProvider, meterProvider, loggerProvider };
 }
 
 const FLUSH_TIMEOUT_MS = 3000;
