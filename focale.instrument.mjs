@@ -1,19 +1,70 @@
 import { trace, metrics, SpanStatusCode } from '@opentelemetry/api';
 import { logs, SeverityNumber } from '@opentelemetry/api-logs';
+import { ExportResultCode } from '@opentelemetry/core';
 import { BasicTracerProvider, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { LoggerProvider, SimpleLogRecordProcessor } from '@opentelemetry/sdk-logs';
-import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
 import { Resource } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
+import {
+  JsonTraceSerializer,
+  JsonMetricsSerializer,
+  JsonLogsSerializer,
+} from '@opentelemetry/otlp-transformer';
 
 // NodeSDK and getNodeAutoInstrumentations cannot run in a Worker isolate.
 // This file registers official Tracer/Meter/Logger providers so withFlow
 // and OTLP export have a backend. FOCALE_DSN is a Worker secret on env, not
 // process.env at import time, so providers start in withWorkers / bindEnv.
 // Skip OTLP when the ingest secret is missing. Do not use Node-only context managers.
+//
+// The official @opentelemetry/exporter-*-otlp-http packages ship a Node build
+// and a "browser" build (XHR/sendBeacon based) selected via their package.json
+// "browser" field. Bundlers resolve Workers builds through that same browser
+// condition, but the resulting class throws synchronously when constructed
+// here ("Class constructor OTLPExporterBase4 cannot be invoked without
+// 'new'") — neither build actually targets the Workers runtime. We use fetch()
+// directly with the OTLP JSON serializers instead, which has no such Node/
+// browser platform split.
+
+const OTLP_EXPORT_TIMEOUT_MS = 5000;
+
+function makeFetchExporter(url, headers, serializer) {
+  const doExport = (item, resultCallback) => {
+    let body;
+    try {
+      body = serializer.serializeRequest(item);
+    } catch (err) {
+      resultCallback({ code: ExportResultCode.FAILED, error: err });
+      return;
+    }
+    if (!body) {
+      resultCallback({ code: ExportResultCode.SUCCESS });
+      return;
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), OTLP_EXPORT_TIMEOUT_MS);
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body,
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`OTLP export to ${url} failed: ${res.status}`);
+        resultCallback({ code: ExportResultCode.SUCCESS });
+      })
+      .catch((err) => {
+        resultCallback({ code: ExportResultCode.FAILED, error: err });
+      })
+      .finally(() => clearTimeout(timeout));
+  };
+  return {
+    export: doExport,
+    async shutdown() {},
+    async forceFlush() {},
+  };
+}
 
 function parseDsn(dsn) {
   if (!dsn) return null;
@@ -56,18 +107,18 @@ function bindEnv(env) {
       const base = parsed.base;
       tracerProvider.addSpanProcessor(
         new SimpleSpanProcessor(
-          new OTLPTraceExporter({ url: base + '/v1/traces', headers }),
+          makeFetchExporter(base + '/v1/traces', headers, JsonTraceSerializer),
         ),
       );
       meterProvider.addMetricReader(
         new PeriodicExportingMetricReader({
-          exporter: new OTLPMetricExporter({ url: base + '/v1/metrics', headers }),
+          exporter: makeFetchExporter(base + '/v1/metrics', headers, JsonMetricsSerializer),
           exportIntervalMillis: 60000,
         }),
       );
       loggerProvider.addLogRecordProcessor(
         new SimpleLogRecordProcessor(
-          new OTLPLogExporter({ url: base + '/v1/logs', headers }),
+          makeFetchExporter(base + '/v1/logs', headers, JsonLogsSerializer),
         ),
       );
     }
